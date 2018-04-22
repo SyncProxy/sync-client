@@ -1,0 +1,208 @@
+////////////////////
+// Sync functions //
+////////////////////
+DBConnector.prototype.getChangesKeyName = function(tableName){
+	return this.name + "." + this.dbName + "." + tableName;
+};
+
+DBConnector.prototype.getTableChangesKeys = function(tableName){
+	var oldItem = localStorage.getItem(this.getChangesKeyName(tableName));
+	if ( oldItem )
+		return JSON.parse(oldItem);
+	else
+		return {Upserts:[], Deletes:[]};
+};
+
+DBConnector.prototype.getUpsertsKeys = function(tableName) {
+	return this.getTableChangesKeys(tableName).Upserts;
+};
+
+DBConnector.prototype.getDeletesKeys = function(tableName) {
+	return this.getTableChangesKeys(tableName).Deletes;
+};
+
+DBConnector.prototype.saveKeyType = function(tableName, key){
+	var item = this.getTableChangesKeys(tableName);
+	item.KeyType = typeof key;
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+};
+
+DBConnector.prototype.getKeyType = function(tableName, type){
+	var item = this.getTableChangesKeys(tableName);
+	return item.KeyType;
+};
+
+DBConnector.prototype.markAsUpserted = function(tableName, arrKeys){
+	if ( !arrKeys || (arrKeys.length == 0) )
+		return;
+	var item = this.getTableChangesKeys(tableName);
+	if ( !item.Deletes )
+		item.Deletes = [];
+	if ( !item.Upserts )
+		item.Upserts = [];
+	// Ignore keys that are already marked as upserted.
+	arrKeys = arrKeys.filter(function(i){
+		return (item.Upserts.indexOf(i) == -1);
+	});
+	item.Upserts = item.Upserts.concat(arrKeys);
+	// Remove newly upserted keys from Deletes array, if any.
+	item.Deletes = item.Deletes.filter(function(i){
+		return (arrKeys.indexOf(i) == -1);
+	});
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+	if ( this.syncClient )
+		this.syncClient.onClientChanges(tableName);
+};
+
+DBConnector.prototype.markAsDeleted = function(tableName, arrKeys){
+	if ( !arrKeys || (arrKeys.length == 0) )
+		return;
+	var item = this.getTableChangesKeys(tableName);
+	if ( !item.Deletes )
+		item.Deletes = [];
+	if ( !item.Upserts )
+		item.Upserts = [];
+	// Ignore keys that are already marked as deleted.
+	arrKeys = arrKeys.filter(function(i){
+		return (item.Deletes.indexOf(i) == -1);
+	});
+	item.Deletes = item.Deletes.concat(arrKeys);
+	// Remove newly deleted keys from Upserts array, if any.
+	item.Upserts = item.Upserts.filter(function(i){
+		return (arrKeys.indexOf(i) == -1);
+	});
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+	if ( this.syncClient )
+		this.syncClient.onClientChanges(tableName);
+};
+
+DBConnector.prototype.markAsBeingSent = function(tableName, arrKeys){
+	if ( !arrKeys || (arrKeys.length == 0) )
+		return;
+	var item = this.getTableChangesKeys(tableName);
+	if ( !item.Sending )
+		item.Sending = [];
+	// Ignore keys that are already marked as being sent.
+	arrKeys = arrKeys.filter(function(i){
+		return (item.Sending.indexOf(i) == -1);
+	});
+	item.Sending = item.Sending.concat(arrKeys);
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+};
+
+DBConnector.prototype.resetSentChanges = function(tableName){
+	var item = this.getTableChangesKeys(tableName);
+	if ( !item.Deletes )
+		item.Deletes = [];
+	if ( !item.Upserts )
+		item.Upserts = [];
+	if ( !item.Sending )
+		item.Sending = [];
+	// Remove Deletes keys that have been sent.
+	item.Deletes = item.Deletes.filter(function(i){
+		return (item.Sending.indexOf(i) == -1);
+	});
+	// Remove Upserts keys that have been sent.
+	item.Upserts = item.Upserts.filter(function(i){
+		return (item.Sending.indexOf(i) == -1);
+	});
+	// Void Sending keys.
+	delete item.Sending;
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+};
+
+DBConnector.prototype.resetTableChanges = function(type, tableName) {		// reset Upserts/Deletes arrays
+	if ( type == null )
+	{
+		localStorage.removeItem(this.getChangesKeyName(tableName));
+		return;
+	}
+	var oldItem = localStorage.getItem(this.getChangesKeyName(tableName));
+	var item;
+	if ( oldItem )
+	{
+		item = JSON.parse(oldItem);
+		item[type] = [];
+	}
+	else
+		item = {Inserts:[], Updates:[], Upserts:[], Deletes:[]};
+	localStorage.setItem(this.getChangesKeyName(tableName), JSON.stringify(item));
+};
+
+DBConnector.prototype.getUpserts = function(tableName) {
+	var self = this;
+	var keys = self.getUpsertsKeys(tableName);
+	return self.getMany(tableName, keys);
+};
+
+DBConnector.prototype.getAllDeletes = function(tables) {
+	var self = this;
+	return new Promise(function(resolve,reject){
+		if ( !tables || !tables.length )
+			return reject("No tables");
+		var allDeletes = {};
+		for ( var t in tables ){
+			deletesKeys = self.getDeletesKeys(tables[t]);
+			if ( deletesKeys && (deletesKeys.length > 0) )
+				allDeletes[tables[t]] = deletesKeys;
+		}
+		return resolve(allDeletes);
+	});
+};
+	
+DBConnector.prototype.getAllUpserts = function(tables){
+	if ( !tables || !tables.length )
+		return Promise.reject("No tables");
+	var self = this;
+	var allUpserts = {};
+	const promises = [];
+	for ( var t in tables ){
+		const tableName = tables[t];
+		const p = self.getUpserts(tableName)
+		.then(res=>{if (res.length) allUpserts[tableName] = res;})
+		.catch(err=>{
+			console.log("getAllUpserts: " + err);
+			return Promise.reject(err);
+		});
+		promises.push(p);
+	}
+	return Promise.all(promises)
+	.then(()=>allUpserts);
+}
+
+// Retrieve best available storage following Ionic Storage's choice order: SQLite, IndexedDB, WebSQL or LocalStorage
+DBConnector.getPreferredIonicStorage = function(){
+	if ( typeof SQLite != "undefined" )
+		return "SQLite";
+	if ( indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB )
+		return "IndexedDB";
+	if ( typeof openDatabase != "undefined" )
+		return "WebSQL";
+	if ( typeof "Storage" != "undefined" )
+		return "LocalStorage";
+	return null;
+};
+
+DBConnector.prototype.getDBVersion = function(){
+	var v = localStorage.getItem("dbVersion");
+	if ( v )
+		return parseInt(v);
+	return 0;
+};
+
+DBConnector.prototype.setDBVersion = function(version){
+	localStorage.setItem("dbVersion", parseInt(version));
+};
+
+DBConnector.prototype.upgradeDatabase = function(newSchema){
+};
+
+function DBConnector(dbName, syncClient)
+{
+	this.name = "DBConnector";
+	if ( !dbName )
+		return;
+	this.dbName = dbName;
+	if ( syncClient )
+		this.syncClient = syncClient;
+}
