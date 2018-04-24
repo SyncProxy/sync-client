@@ -1,12 +1,18 @@
-# Introduction
-SyncProxy-client is a javascript client for SyncProxy that enables one-single line of code implementation of synchronization for javascript offline applications using embedded database (IndexedDB, SQL Lite, WebSQL...). Used with with the SyncProxy server (www.syncproxy.com) to access the backend database (MySQL, SQL Server, MongoDB...), this is the shortest way to make mobile offline applications synchronize bi-directionally in realtime using reactive sync technology.
+# SyncProxy step-by-step quick start guide for Ionic
+Below is a quick start tutorial to how to setup an Ionic hybrid mobile application embedding its own database with **SyncProxy** client. Used together with online **SyncProxy** server (www.syncproxy.com), this is the quickest way to create an application that will synchronize bidirectionally, reactively in realtime with your backend database (MySQL, SQL Server, MongoDB...), and also work perfectly when offline. Only with one line of code.
 
+## Architecture
+The **SyncProxy** client targets hybrid mobile applications (Ionic, Phonegap, Cordova, Xamarin...) with an embedded database (IndexedDB, SQLite, WebSQL...) that provides offline capabilities. By adding the **SyncProxy** client to your main .html file **with one single line of code**, you will turn your offline app into a powerfull online application with bidirectionnal reactive (realtime) sync that will work perfectly with or without connection. You will not need develop any specialized webservices, since the **SyncProxy** server enables to define sync profiles directly online on www.syncproxy.com which acts as a gateway between your app and your backend database.
 
-# Example
-Simply load the SyncProxy client script from within your main index.html page:
+## How to setup an existing Ionic application
+The setup of an existing Ionic application 
+````javascript
+````
 
-```javascript
-<script src="sync-client/sync-client.js" serverUrl="my.syncproxy.com" serverPort="4501" proxyID="<proxy Id>" connectorType="IndexedDB or WebSQL or SQLite or IonicStorage" dbName="<your client db name>"></script> 
-```
+## How to create a new application
 
-(the script params can also be retrieved directly from my.syncproxy.com when creating a sync proxy)
+````javascript
+````
+
+## Link
+To access SyncProxy administration to setup your sync proxy and connect to your database, go to www.syncproxy.com
