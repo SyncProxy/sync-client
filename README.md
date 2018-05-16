@@ -12,4 +12,4 @@ Simply load the SyncProxy client script from within your main index.html page:
 (the script params can also be retrieved directly from my.syncproxy.com when creating a sync proxy)
 
 ## Documentation
-https://github.com/hmellanger/syncproxy-quickstart-ionic
+https://github.com/syncproxy/syncproxy-quickstart-ionic
