@@ -65,7 +65,7 @@ If true, a popup sync button is displayed. If false, application must take care 
 default: "true"
 
 **tablesToSync**  
-Force the list of tables to sync with sync profiles (sync direction + reactivity). In most cases, this attribute should be ignored.
+Force the list of tables to sync. **Mandatory if the proxy uses a NoSQL (or Auto backendless) database in conjunction with a schema discovered from clients data.**. Set an empty array otherwise.
 default: "[]"
 
 **customCredentials**  
