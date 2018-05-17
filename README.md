@@ -61,7 +61,7 @@ default: "true"
 
 **syncButton**  
 values: "true", "false"
-If true, a popup sync button is displayed. If false, it is application's duty to invoke client sync's sync() function
+If true, a popup sync button is displayed. If false, application must take care to launch sync by itself
 default: "true"
 
 **tablesToSync**  
