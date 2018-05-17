@@ -6,7 +6,7 @@ SyncProxy-client is a javascript client for SyncProxy that enables one-single li
 Simply download the library, then load the SyncProxy client script from within your main index.html page:
 
 ```html
-<script src="sync-client/sync-client.js" serverUrl="my.syncproxy.com" proxyID="<proxy Id>" connectorType="IndexedDB or WebSQL or SQLite or IonicStorage" dbName="<your client db name>"></script> 
+<script src="sync-client/sync-client.js" proxyID="<proxy Id>" connectorType="IndexedDB or WebSQL or SQLite or IonicStorage" dbName="your client db name"></script> 
 ```
 
 (the script params can also be retrieved directly from my.syncproxy.com when creating a sync proxy)
