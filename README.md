@@ -10,3 +10,6 @@ Simply download the library, then load the SyncProxy client script from within y
 ```
 
 (the script params can also be retrieved directly from my.syncproxy.com when creating a sync proxy)
+
+## Documentation
+https://github.com/syncproxy/syncproxy-quickstart-ionic
