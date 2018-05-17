@@ -18,73 +18,73 @@ Simply copy the library, then load the SyncProxy client script from within your 
 ## Custom params
 Sync client script can be invoked with custom params that are inserted as attributes of the **&lt;script&gt;** tag:
 
-**src (mandatory)**
+**src (mandatory)**  
 path to the client sync script (recommended: "client-sync/client-sync.js")
 
-**proxyID (mandatory)**
+**proxyID (mandatory)**  
 Id attributed by SyncProxy to  your proxy on creation
 
-**dbName (mandatory)**
+**dbName (mandatory)**  
 Name of your embedded database in mobile app
 
-**connectorType**
+**connectorType**  
 values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage"
 default: "IndexedDB"
 
-**protocol**
+**protocol**  
 values: "ws" (websocket) or "wss" (secured websoket)
 default: "wss"
 
-**serverUrl**
+**serverUrl**  
 Url of the server hosting SyncProxy
 default: "my.syncproxy.com"
 
-**serverPort**
+**serverPort**  
 Port listened on by SyncProxy server
 default value: 4501
 
-**autoUpgradeDB**
+**autoUpgradeDB**  
 values: "true", "false"
 If true, the embedded database's structure will be automatically upgraded (if this is relevant to the type of database) during sync after a database schema update.
 If false, it is application's duty to manage database schema upgrade
 default: "true"
 
-**autoInit**
+**autoInit**  
 values: "true", "false"
 If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 default: "true"
 
-**reactiveSync**
+**reactiveSync**  
 values: "true", "false"
 If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
 default: "true"
 
-**syncButton**
+**syncButton**  
 values: "true", "false"
 If true, a popup sync button is displayed. If false, it is application's duty to invoke client sync's sync() function
 default: "true"
 
-**tablesToSync**
+**tablesToSync**  
 Force the list of tables to sync with sync profiles (sync direction + reactivity). In most cases, this attribute should be ignored.
 default: "[]"
 
-**customCredentials**
+**customCredentials**  
 If set, defines a custom credential function. Typically returns a {login, password} object which will be sent as-is to the server. If left blank, the credentials are managed by sync client using a login prompt.
 default: ""
 
-**loginSource**
+**loginSource**  
 If set, defines a user login source object within the application, for instance: "document.getElementById('inputLogin').value"
 default: ""
 
-**passwordSource**
+**passwordSource**  
 If set, defines a user password source object within the application, for instance: "document.getElementById('inputPassword').value"
 default: ""
 
-**welcomeMessage**
+**welcomeMessage**  
 Message that will popup in the app before the first synchronization.
 default: "To begin, please press Sync button"
 
-**onSyncEnd**
+**onSyncEnd**  
 Handler function called each time synchronization ends
 
 ## Documentation
