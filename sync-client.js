@@ -25,7 +25,7 @@ if ( !Object.values )
 
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
-	"serverUrl": "localhost",				// Default: "syncproxy.com";
+	"serverUrl": "my.syncproxy.com",		// Default: "my.syncproxy.com";
 	"serverPort": 4501,						// Default: 4501
 	"proxyId": "",							// ID of the server-side sync proxy to sync with. If blank, user's default sync proxy will be retrieved by sync server
 	"connectorType": "IndexedDB",			// Client database connector: IndexedDB / WebSQL / SQLite / LocalStorage / IonicStorage
@@ -375,6 +375,9 @@ SyncClient.prototype._onSyncCancel = function(msg){
 };
 
 SyncClient.prototype._onSyncError = function(err){
+	// Reset keys of changes being sent.
+	this.resetSendings();
+
 	var self = this;
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
 		this.stopAutoReconnect();
@@ -390,7 +393,7 @@ SyncClient.prototype._onSyncError = function(err){
 		if ( err && err.err && err.message )
 			this.showToast(err.err + ": " + err.message, "error");
 		else if (err && err.err)
-			this.showToast(err.err);
+			this.showToast(err.err, "error");
 		else if (err && err.message)
 			this.showToast(err.message);
 		else if (typeof err == "string")
@@ -1246,6 +1249,24 @@ SyncClient.prototype.resetSentChanges = function(){
 	for ( var tableName in tableNames ){
 		if (!this.connector.resetSentChanges(tableNames[tableName]))
 			this.allChangesSent = false;
+	}
+	return Promise.resolve();
+};
+
+SyncClient.prototype.resetSendings = function(){
+	if ( this.changes ){
+		var tableNames = [];
+		for ( var tableName in this.changes.Upserts ){
+			if ( tableNames.indexOf(tableName) == -1 )
+				tableNames.push(tableName);
+		}
+		for ( var tableName in this.changes.Deletes ){
+			if ( tableNames.indexOf(tableName) == -1 )
+				tableNames.push(tableName);
+		}
+		for ( var tableName in tableNames ){
+			this.connector.resetSendings(tableNames[tableName]);
+		}
 	}
 	return Promise.resolve();
 };

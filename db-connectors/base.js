@@ -102,6 +102,10 @@ DBConnector.prototype.markAsBeingSent = function(tableName, arrKeys){
 };
 
 // Return true if all changes have been sent, otherwise if some Upserts or Deletes remain to be sent
+DBConnector.prototype.resetSendings = function(tableName){
+	localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
+};
+
 DBConnector.prototype.resetSentChanges = function(tableName){
 	var upserts = this.getTableChangesKeys(tableName, "Upserts");
 	var deletes = this.getTableChangesKeys(tableName, "Deletes");
