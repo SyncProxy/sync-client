@@ -33,11 +33,11 @@ SyncClient.prototype.defaultParams = {
 	"autoUpgradeDB": "true",					// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
 	"autoInit": true,						// If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 	"reactiveSync": true,					// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
-	"syncButton": true,						// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
+	"syncButton": true,						// If true, a popup sync button is displayed. If false, it is application's duty to invoke client sync's sync() function
 	"tablesToSync": [],						// List of tables to sync with sync profiles (sync direction + reactivity)
 	"customCredentials": "",				// Custom credential function. Typically returns a {login, password} object which will be sent as-is to the server.
-	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
-	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
+	"loginSource": "",						// If set, defines a user login source object within the application, for instance: "document.getElementById('inputLogin').value"
+	"passwordSource": "",					// If set, defines a user password source object within the application, for instance: "document.getElementById('inputPassword').value"
 	"welcomeMessage": "To begin, please press Sync button",
 	"onSyncEnd": "console.log('onSyncEnd')"				// Custom function called after sync end
 };
