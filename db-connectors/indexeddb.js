@@ -11,6 +11,7 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 	// Patch "add" function of IndexedDB, to automatically mark object as inserted and in needing sync.
 	IDBObjectStore.prototype.addSTD = IDBObjectStore.prototype.add;
 	IDBObjectStore.prototype.add = function(data,key){
+		var that = this;
 		var req;
 		if ( key )
 			req = this.addSTD(data,key);
@@ -19,7 +20,7 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 		setTimeout(function(){
 			var onsuccesOrg = req.onsuccess;		// Calling application may itself define an onsuccess() function for add() operation. It will be executed after upsert is marked as upserted
 			req.onsuccess = function(e){
-				self.markAsUpserted(self.name, [e.target.result]);		// the inserted key value (may be autoinc) is in e.target.result of onsuccess(e)
+				self.markAsUpserted(that.name, [e.target.result]);		// the inserted key value (may be autoinc) is in e.target.result of onsuccess(e)
 				if ( !req.onsuccessDone ){
 					req.onsuccessDone = true;
 					onsuccesOrg(e);
