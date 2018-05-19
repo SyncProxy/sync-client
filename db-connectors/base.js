@@ -188,14 +188,14 @@ DBConnector.getPreferredIonicStorage = function(){
 };
 
 DBConnector.prototype.getDBVersion = function(){
-	var v = DBConnector.getItem("dbVersion");
+	var v = DBConnector.getItem(this.dbName + ".dbVersion");
 	if ( v )
 		return parseInt(v);
 	return 0;
 };
 
 DBConnector.prototype.setDBVersion = function(version){
-	DBConnector.setItem("dbVersion", parseInt(version));
+	DBConnector.setItem(this.dbName + ".dbVersion", parseInt(version));
 };
 
 DBConnector.prototype.upgradeDatabase = function(newSchema){

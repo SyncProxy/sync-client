@@ -21,12 +21,7 @@ logMs = function(s){
 
 // Simple ployfill for Object.values() function
 if ( !Object.values )
-	Object.values = function(obj){
-		// return Object.keys(obj).map(key=>obj[key]);
-		return Object.keys(obj).map(function(key){
-			return obj[key];
-		});
-	};
+	Object.values = (obj)=>Object.keys(obj).map(key=>obj[key]);
 
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
@@ -35,14 +30,14 @@ SyncClient.prototype.defaultParams = {
 	"proxyId": "",							// ID of the server-side sync proxy to sync with. If blank, user's default sync proxy will be retrieved by sync server
 	"connectorType": "IndexedDB",			// Client database connector: IndexedDB / WebSQL / SQLite / LocalStorage / IonicStorage
 	"dbName": "",							// Client databse name
-	"autoUpgradeDB": "true",					// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
+	"autoUpgradeDB": "true",				// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
 	"autoInit": true,						// If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 	"reactiveSync": true,					// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
-	"syncButton": true,						// If true, a popup sync button is displayed. If false, it is application's duty to invoke client sync's sync() function
+	"syncButton": true,						// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
 	"tablesToSync": [],						// List of tables to sync with sync profiles (sync direction + reactivity)
 	"customCredentials": "",				// Custom credential function. Typically returns a {login, password} object which will be sent as-is to the server.
-	"loginSource": "",						// If set, defines a user login source object within the application, for instance: "document.getElementById('inputLogin').value"
-	"passwordSource": "",					// If set, defines a user password source object within the application, for instance: "document.getElementById('inputPassword').value"
+	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
+	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
 	"welcomeMessage": "To begin, please press Sync button",
 	"onSyncEnd": "console.log('onSyncEnd')"				// Custom function called after sync end
 };
@@ -104,7 +99,8 @@ function SyncClient(params){
 	.then(()=>{
 		if ( this.syncButton )
 			this.createSyncButton();
-		if (!localStorage.getItem("syncClientCode") && this.welcomeMessage && (this.welcomeMessage != ""))
+		// if (!localStorage.getItem("syncClientCode") && this.welcomeMessage && (this.welcomeMessage != ""))
+		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
 			this.showToast(this.welcomeMessage)
 	})
 	.catch(err=>alert(err));
@@ -126,7 +122,8 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 		if ( !idb )
 			return;
 		idb.openSTD = idb.open;		// save original function
-		if ( !localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true")){
+		// if ( (this.autoUpgradeDB.toString() != "false") && (!localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true"))){
+		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
 			idb.indexedDBOpenDisabled = true;
 			idb.open = function(dbName){
 				console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
@@ -162,11 +159,11 @@ SyncClient.prototype.resetIndexedDBOpen = function(){
 };
 
 SyncClient.prototype.saveSchema = function(schema){
-	localStorage.setItem("schema", JSON.stringify(schema));
+	localStorage.setItem(this.proxyId + ".schema", JSON.stringify(schema));
 };
 
 SyncClient.prototype.loadSchema = function(schema){
-	var s = localStorage.getItem("schema");
+	var s = localStorage.getItem(this.proxyId + ".schema");
 	if ( s )
 		this.schema = JSON.parse(s);
 	return this.schema;
@@ -176,16 +173,17 @@ SyncClient.prototype.loadSchema = function(schema){
 SyncClient.prototype.upgradeNeeded = function(schema){
 	var needed = ( (this.autoUpgradeDB.toString() != "false") && schema && (schema.version > this.connector.getDBVersion()) );
 	if ( !needed )
-		localStorage.setItem("mustUpgrade", false);
+		// localStorage.setItem("mustUpgrade", false);
+		this.saveMustUpgrade(false);
 	return needed;
 };
 
 SyncClient.prototype.saveSyncProfile = function(syncProfile){
-	localStorage.setItem("syncProfile", JSON.stringify(syncProfile));
+	localStorage.setItem(this.proxyId + ".syncProfile", JSON.stringify(syncProfile));
 };
 
 SyncClient.prototype.loadSyncProfile = function(syncProfile){
-	var s = localStorage.getItem("syncProfile");
+	var s = localStorage.getItem(this.proxyId + ".syncProfile");
 	if ( s )
 		this.syncProfile = JSON.parse(s);
 	return this.syncProfile;
@@ -644,7 +642,8 @@ SyncClient.prototype.onSchemaUpdate = function(schema){
 	console.log("onSchemaUpdate");
 	this.saveSchema(schema);
 	this.mustUpgrade = this.upgradeNeeded(schema);
-	localStorage.setItem("mustUpgrade", true);
+	// localStorage.setItem("mustUpgrade", true);
+	this.saveMustUpgrade(true);
 	if (this.mustUpgrade)
 		this.showMustUpgradeWarning();
 };
@@ -680,7 +679,7 @@ SyncClient.prototype.promptUserLogin = function(){
 				password = document.getElementById("spPassword").value;
 				if ( !password )
 					password = "";
-				localStorage.setItem("lastLogin", login);
+				localStorage.setItem(self.proxyId + ".lastLogin", login);
 				return true; // close the dialog
 				// return false; // nothing happens
 			}
@@ -726,8 +725,8 @@ SyncClient.prototype.getCredentials = function(){
 	}
 	if ( this.login && this.password )
 		return Promise.resolve({login:this.login, password:this.password});
-	if ( localStorage.getItem("lastLogin") )
-		this.login = localStorage.getItem("lastLogin");
+	if ( localStorage.getItem(this.proxyId + ".lastLogin") )
+		this.login = localStorage.getItem(this.proxyId + ".lastLogin");
 	var self = this;
 	var cred = this.getCustomCredentials();		// source objects may be defined to get credentials from.
 	if ( cred )
@@ -896,16 +895,29 @@ SyncClient.prototype.stopSync = function(){
 };
 
 SyncClient.prototype.getSyncClientCode = function(){
-	return localStorage.getItem("syncClientCode");
+	return localStorage.getItem(this.proxyId + ".syncClientCode");
 };
 
 SyncClient.prototype.saveSyncClientCode = function(code){
-	localStorage.setItem("syncClientCode", code);
+	localStorage.setItem(this.proxyId + ".syncClientCode", code);
+};
+
+SyncClient.prototype.getMustUpgrade = function(){
+	if ( this.autoUpgradeDB == "false")
+		return false;
+	return localStorage.getItem(this.dbName + ".mustUpgrade");
+};
+
+SyncClient.prototype.saveMustUpgrade = function(val){
+	console.log("this.autoUpgradeDB=" + this.autoUpgradeDB);
+	if ( this.autoUpgradeDB == "false" )
+		return;
+	localStorage.setItem(this.dbName + ".mustUpgrade", val);
 };
 
 SyncClient.prototype.saveUserName = function(name, lastName){
-	localStorage.setItem("lastUserName", name);
-	localStorage.setItem("lastUserLastName", lastName);
+	localStorage.setItem(this.proxyId + ".lastUserName", name);
+	localStorage.setItem(this.proxyId + ".lastUserLastName", lastName);
 };
 
 SyncClient.prototype.authenticate = function() {
@@ -1080,7 +1092,8 @@ SyncClient.prototype.upgradeDatabase = function(newSchema){
 		.then(res=>{
 			if ( res ){
 				self.showToast("Database has been upgraded to version " + newSchema.version);
-				localStorage.setItem("mustUpgrade", false);
+				// localStorage.setItem("mustUpgrade", false);
+				self.saveMustUpgrade(false);
 				window.setTimeout(function(){resolve(true);}, 3000);		// necessary (only to) display toast for a while before it is cleared by "Sync started" toast.
 			}
 			else
