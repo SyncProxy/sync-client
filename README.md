@@ -28,7 +28,7 @@ values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage"
 default: "IndexedDB"
 
 **dbName**  
-Name of your embedded database in mobile app  
+Name of your embedded database in mobile app.  
 default: "SyncProxy"
 
 **protocol**  

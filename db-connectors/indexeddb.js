@@ -19,7 +19,6 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 			req = this.addSTD(data,key);
 		else
 			req = this.addSTD(data);
-		console.log("markupKey=" + markupKey);
 		if ( markupKey )
 			self.markAsUpserted(that.name, [markupKey]);
 		else if ( this.autoIncrement ){
