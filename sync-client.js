@@ -21,7 +21,12 @@ logMs = function(s){
 
 // Simple ployfill for Object.values() function
 if ( !Object.values )
-	Object.values = (obj)=>Object.keys(obj).map(key=>obj[key]);
+	Object.values = function(obj){
+		// return Object.keys(obj).map(key=>obj[key]);
+		return Object.keys(obj).map(function(key){
+			return obj[key];
+		});
+	};
 
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
