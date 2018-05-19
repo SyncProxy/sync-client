@@ -24,12 +24,13 @@ path to the client sync script (recommended: "client-sync/client-sync.js")
 **proxyID (mandatory)**  
 Id attributed by SyncProxy to  your proxy on creation
 
-**dbName (mandatory)**  
-Name of your embedded database in mobile app
-
 **connectorType**  
 values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage"
 default: "IndexedDB"
+
+**dbName**  
+Name of your embedded database in mobile app
+default: "SyncProxy"
 
 **protocol**  
 values: "ws" (websocket) or "wss" (secured websoket)
