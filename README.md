@@ -46,7 +46,7 @@ default value: 4501
 **autoUpgradeDB**  
 values: "true", "false"
 If true, the embedded database's structure will be automatically upgraded (if this is relevant to the type of database) during sync after a database schema update.
-If false, it is application's duty to manage database schema upgrade
+Set to false if application creates and upgrades database schema by itself.
 default: "true"
 
 **autoInit**  
