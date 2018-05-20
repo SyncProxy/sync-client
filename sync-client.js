@@ -136,6 +136,7 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 
 SyncClient.prototype.resetIndexedDBOpen = function(){
 	// Reset original database open function used by app, if it was patched (to prevent database version collision with app), restore original open
+	var self = this;
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
 		const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
 		if ( !idb )
@@ -143,17 +144,20 @@ SyncClient.prototype.resetIndexedDBOpen = function(){
 		if (idb && idb.indexedDBOpenDisabled){
 			delete idb.indexedDBOpenDisabled;
 			idb.open = function(dbName, version, cb){
+				idb.restartNeeded = false;		// give a chance to app to avoid restart if it calls db.open() again (restart will apply only if app calls db.open() once at launch)
 				return idb.openSTD(dbName, version, cb);
 			};
-			if ( idb.restartNeeded ){
-				console.log("App attempt to open IndexedDB on start was blocked by sync client's database update. App will restart.");
-				this.showToast("Application needs to restart", "warning");
-				window.setTimeout(function(){
-					location.reload();
-				}, 3000);
-			}
-			else
-				console.log("IndexedDB.open() was reset to original");
+			window.setTimeout(function(){
+				if ( idb.restartNeeded ){
+					console.log("App attempt to open IndexedDB on start was blocked by sync client's database update. App will restart.");
+					self.showToast("Application needs to restart", "warning");
+					window.setTimeout(function(){
+						location.reload();
+					}, 3000);
+				}
+				else
+					console.log("IndexedDB.open() was reset to original");
+			}, 1000);
 		}
 	}
 };
@@ -631,7 +635,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 };
 
 SyncClient.prototype.showMustUpgradeWarning = function(){
-	this._onSyncCancel("Database must be upgraded. Application will restart", "warning");
+	this._onSyncCancel("Database initialization... Application will restart", "warning");
 	window.setTimeout(function(){
 		location.reload();
 	}, 3000);
