@@ -393,7 +393,11 @@ SyncClient.prototype._onSyncError = function(err){
 		if ( this.password ) delete this.password;
 		delete this.sessionId;
 	}
-	if (err != "Cancel"){
+	if ( err.warning && err.message )
+		this.showToast(err.message, "warning");
+	else if ( err.warning )
+		this.showToast(err.warning, "warning");
+	else if (err != "Cancel"){
 		this.lastSyncFailed = true;
 		if ( err == "Not authenticated" )
 			this.showToast("Not authenticated", "error");
@@ -543,7 +547,8 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			return resolve(data);
 		}
 		if ( data && data.warning ){
-			self.handleServerWarning(data);
+			self._onSyncError(data);
+			// self.handleServerWarning(data);
 			return resolve(data);
 		}
 		if ( synchronousRequestType == "authentication"){
