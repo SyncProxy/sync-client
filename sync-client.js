@@ -397,7 +397,7 @@ SyncClient.prototype._onSyncError = function(err){
 		this.lastSyncFailed = true;
 		if ( err == "Not authenticated" )
 			this.showToast("Not authenticated", "error");
-		if ( err && err.err && err.message )
+		if ( err && err.err && err.message && (err.message.toString() != "[object Object]") )
 			this.showToast(err.err + ": " + err.message, "error");
 		else if (err && err.err)
 			this.showToast(err.err, "error");
