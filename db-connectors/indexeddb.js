@@ -11,7 +11,6 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 	// Patch "add" function of IndexedDB, to automatically mark object as inserted and in needing sync.
 	IDBObjectStore.prototype.addSTD = IDBObjectStore.prototype.add;
 	IDBObjectStore.prototype.add = function(data,key){
-		console.dir(this);
 		var that = this;
 		var markupKey = key ? key : (this.keyPath ? data[this.keyPath] : null);
 		var req;

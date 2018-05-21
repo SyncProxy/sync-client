@@ -1,5 +1,6 @@
 
 
+
 # Introduction
 SyncProxy-client is a javascript client for SyncProxy that enables one-single line of code implementation of synchronization for javascript offline applications using embedded database (IndexedDB, SQL Lite, WebSQL...). Used with the SyncProxy server (www.syncproxy.com) to access the backend database (MySQL, SQL Server, MongoDB...), this is the shortest way to make mobile offline applications synchronize bi-directionally in realtime using reactive sync technology.
 
@@ -155,8 +156,8 @@ If true, a popup sync button is displayed. If false, application must take care 
 default: "true"
 
 **tablesToSync**  
-Force the list of tables to sync. In normal condition, should be an empty array.  
-default: "[]"
+When using Auto Backendless database or NoSQL database without server database schema, you have the ability to discover schema from client's data. In that case, attribute tablesToSync must be set with the list of tables to sync from client to server. 
+default: ""
 
 **customCredentials**  
 If set, defines a custom credential function. Typically returns a {login, password} object which will be sent as-is to the server. If left blank, the credentials are managed by sync client using a login prompt.  
