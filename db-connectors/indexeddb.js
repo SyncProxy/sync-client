@@ -37,13 +37,28 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 	// Patch "put" function of IndexedDB, to automatically mark object as modified and in needing sync.
 	IDBObjectStore.prototype.putSTD = IDBObjectStore.prototype.put;
    	IDBObjectStore.prototype.put = function(data,key){
+		var that = this;
 		var markupKey = key ? key : (this.keyPath ? data[this.keyPath] : null);
-		if ( markupKey )
-			self.markAsUpserted(this.name, [markupKey]);		// put may add or modify object.
+		var req;
 		if ( key )
-			return this.putSTD(data,key);
+			req = this.putSTD(data,key);
 		else
-			return this.putSTD(data);
+			req = this.putSTD(data);
+		if ( markupKey )
+			self.markAsUpserted(that.name, [markupKey]);
+		else if ( this.autoIncrement ){
+			// After autoinc insert, retrieve greatest key of the store and mark it as upserted
+			var done;
+			this.openCursor(null, 'prev').onsuccess = function(event) {
+				var cursor = event.target.result;  
+				if (cursor && !done) {
+					done = true;
+					self.markAsUpserted(that.name, [cursor.key]);
+					return;
+				}
+			}
+		}
+		return req;
 	};
 	// Patch "delete" function of IndexedDB, to automatically mark object as deleted and in needing sync.
 	IDBObjectStore.prototype.deleteSTD = IDBObjectStore.prototype.delete;

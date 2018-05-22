@@ -763,8 +763,8 @@ SyncClient.prototype.promptUserLogin = function(){
 		var showFailure = "hidden";
 		if ( self.lastAuthFailed )
 			showFailure = "show";
-		self.loginModal.setContent("<h1 class='tingle-custom-title'>Please enter your sync login</h1>" 
-			+ "<label class='tingle-custom-label'>E-mail:</label>&emsp;<input id='spLogin' type='text' class='tingle-custom-input' onkeydown='document.getElementById(\"lblAuthFailure\").style.visibility=\"hidden\";' value='" + self.login + "' onpaste='return false;'/><br><br>"
+		self.loginModal.setContent("<h1 class='tingle-custom-title'>Please enter your sync login</h1>"
+			+ "<label class='tingle-custom-label'>E-mail:</label>&emsp;<input id='spLogin' class='tingle-custom-input' onkeydown='document.getElementById(\"lblAuthFailure\").style.visibility=\"hidden\";' value='" + self.login + "' onpaste='return false;'/><br><br>"
 			+ "<label class='tingle-custom-label'>Password:</label>&emsp;<input id='spPassword' type='password' class='tingle-custom-input' onkeydown='document.getElementById(\"lblAuthFailure\").style.visibility=\"hidden\";' value=''/><br><br>"
 			+ "<p class='tingle-custom-text'>If you don't have a login yet, please go to <a href='www.syncproxy.com'>www.syncproxy.com</a> to signup and join or create a sync group.</p>"
 			+ "<p id='lblAuthFailure' class='tingle-custom-text tingle-red-text' style='visibility:" + showFailure + "'>Authentication failure</p>");
