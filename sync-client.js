@@ -23,6 +23,55 @@ logMs = function(s){
 if ( !Object.values )
 	Object.values = (obj)=>Object.keys(obj).map(key=>obj[key]);
 
+// Save original IndexedDB.open() function before disabling it if necessary
+const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
+if ( idb )
+	idb.openSTD = idb.open;
+
+// Substitute for jquery .ready() function
+(function(funcName, baseObj) {
+    funcName = funcName || "docReady";
+    baseObj = baseObj || window;
+    var readyList = [];
+    var readyFired = false;
+    var readyEventHandlersInstalled = false;
+    function ready() {
+        if (!readyFired) {
+            readyFired = true;
+            for (var i = 0; i < readyList.length; i++) 
+                readyList[i].fn.call(window, readyList[i].ctx);
+            readyList = [];
+        }
+    }
+    function readyStateChange() {
+        if ( document.readyState === "complete" ) {
+            ready();
+        }
+    }
+    baseObj[funcName] = function(callback, context) {
+        if (typeof callback !== "function") {
+            throw new TypeError("callback for docReady(fn) must be a function");
+        }
+        if (readyFired) {
+            setTimeout(function() {callback(context);}, 1);
+            return;
+        } else
+            readyList.push({fn: callback, ctx: context});
+        if (document.readyState === "complete") {
+            setTimeout(ready, 1);
+        } else if (!readyEventHandlersInstalled) {
+            if (document.addEventListener) {
+                document.addEventListener("DOMContentLoaded", ready, false);
+                window.addEventListener("load", ready, false);
+            } else {
+                document.attachEvent("onreadystatechange", readyStateChange);
+                window.attachEvent("onload", ready);
+            }
+            readyEventHandlersInstalled = true;
+        }
+    }
+})("docReady", window);
+
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
 	"serverUrl": "my.syncproxy.com",		// Default: "my.syncproxy.com";
@@ -97,9 +146,9 @@ function SyncClient(params){
 		});
 	})
 	.then(()=>{
-		if ( this.syncButton )
-			this.createSyncButton();
-		// if (!localStorage.getItem("syncClientCode") && this.welcomeMessage && (this.welcomeMessage != ""))
+		if ( self.syncButton ){
+			docReady(function(){self.createSyncButton();});
+		}
 		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
 			this.showToast(this.welcomeMessage)
 	})
@@ -115,13 +164,14 @@ function SyncClient(params){
 	window.addEventListener('syncEnd', function(e){if (self.onSyncEnd) eval(self.onSyncEnd);});		// call a custom function if any
 }
 
+/*
 SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
-		const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
-		if ( !idb )
-			return;
-		idb.openSTD = idb.open;		// save original function
+		// const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
+		// if ( !idb )
+			// return;
+		// idb.openSTD = idb.open;		// save original function
 		// if ( (this.autoUpgradeDB.toString() != "false") && (!localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true"))){
 		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
 			idb.indexedDBOpenDisabled = true;
@@ -132,6 +182,23 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 			};
 		}
 	}
+}
+*/
+SyncClient.prototype.disableIndexedDBOpen = function(){
+	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
+	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
+		// if ( (this.autoUpgradeDB.toString() != "false") && (!localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true"))){
+		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
+			idb.indexedDBOpenDisabled = true;
+			idb.open = function(dbName){
+				console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
+				idb.restartNeeded = true;
+				return null;
+			};
+		}
+	}
+	else if ( idb )
+		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
 }
 
 SyncClient.prototype.resetIndexedDBOpen = function(){
