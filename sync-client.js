@@ -891,7 +891,8 @@ SyncClient.prototype.updateSyncButton = function(pressed){
 
 SyncClient.prototype.initSyncButtonPos = function(){
 	// Center button horizontally at the bootom
-	this.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
+	// this.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
+	this.syncBtn.style.top = (parseInt(this.syncBtn.parentNode.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
 	this.syncBtn.style.left = parseInt(parseInt(window.innerWidth)/2 - parseInt(this.syncBtn.offsetWidth)/2) + "px";
 };
 
@@ -938,8 +939,11 @@ SyncClient.prototype.createSyncButton = function(){
 			self.syncBtn.style.left = "0px";
 		if ( self.syncBtn.offsetTop < 0 )
 			self.syncBtn.style.top = "0px";
-		if ( parseInt(self.syncBtn.offsetTop) > parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3 )
-			self.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
+		// if ( parseInt(self.syncBtn.offsetTop) > parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3 )
+			// self.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
+		var hMax = Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0);
+		if ( parseInt(self.syncBtn.offsetTop) > hMax - parseInt(self.syncBtn.offsetHeight) - 3 )
+			self.syncBtn.style.top = (hMax - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
 	};
 	this.syncBtn.drop = function(e) {
 		var clicked = self.syncBtn.obj && !self.syncBtn.moved;
@@ -957,6 +961,7 @@ SyncClient.prototype.createSyncButton = function(){
 	document.ontouchmove = this.syncBtn.move;
 	document.onmouseup = this.syncBtn.drop;
 	document.ontouchend = this.syncBtn.drop;
+	document.onmouseleave = this.syncBtn.drop;
 };
 
 SyncClient.prototype.syncButtonPressed = function(){
