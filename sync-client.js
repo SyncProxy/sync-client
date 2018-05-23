@@ -892,14 +892,16 @@ SyncClient.prototype.updateSyncButton = function(pressed){
 SyncClient.prototype.initSyncButtonPos = function(){
 	// Center button horizontally at the bootom
 	// this.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
-	this.syncBtn.style.top = (parseInt(this.syncBtn.parentNode.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
+	this.syncBtn.style.top = (Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0) - parseInt(this.syncBtn.offsetHeight)) + "px";
 	this.syncBtn.style.left = parseInt(parseInt(window.innerWidth)/2 - parseInt(this.syncBtn.offsetWidth)/2) + "px";
 };
 
 SyncClient.prototype.createSyncButton = function(){
 	include("libs/sync-button.css", "link");
 	var self = this;
-	window.onresize = function(e){self.initSyncButtonPos(e);};
+	window.onresize = function(e){
+		self.initSyncButtonPos(e);
+	};
 	this.updateSyncButton();
 	window.setTimeout(function(){
 		// Set button position, once its height & width are known (therefore we use a timeout)
