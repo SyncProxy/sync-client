@@ -129,6 +129,13 @@ function SyncClient(params){
 		return include("libs/toastada.css", "link");
 	})
 	.then(()=>{
+		if ( self.syncButton ){
+			docReady(function(){self.createSyncButton();});
+		}
+		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
+			this.showToast(this.welcomeMessage)
+	})
+	.then(()=>{
 		self.loadSchema();
 		var upgradePromise;
 		if ( self.upgradeNeeded(self.schema) ){
@@ -144,13 +151,6 @@ function SyncClient(params){
 				return self.connect()		// on connected will start a full sync
 				.catch(err=>self._onConnectionError(err));
 		});
-	})
-	.then(()=>{
-		if ( self.syncButton ){
-			docReady(function(){self.createSyncButton();});
-		}
-		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
-			this.showToast(this.welcomeMessage)
 	})
 	.catch(err=>alert(err));
 	
