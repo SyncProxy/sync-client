@@ -4,19 +4,9 @@ DBConnectorIndexedDB.prototype.getIndexedDB = function(){
 	return indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
 }
 
-/*
-DBConnectorIndexedDB.prototype.newUID = function(){
-	return Math.floor((1 + Math.random()) * 0x100000000)
-	.toString(16)
-	.substring(1);
-};
-*/
 DBConnectorIndexedDB.prototype.newUID = function(){
 	return Math.floor((1 + Math.random()) * 0x1000000000);
-	// .toString(16)
-	// .substring(1);
 };
-
 
 // Patch IndexedDB's standard function to add automatic changes detection.
 DBConnectorIndexedDB.prototype.monkeyPatch = function(){
@@ -151,7 +141,6 @@ DBConnectorIndexedDB.prototype.openDB = function() {
 
 DBConnectorIndexedDB.prototype.openDBAndStore = function(tableName) {
 	// Store should be opened this way only for 1-operation transactions. Otherwise, FireFox will throw a TransactionInactiveError for next operations.
-	// (see function getMany() for an example not using promise for opening store).
 	var db, self = this;
 	return this.openDB()
 	.then(res=>{db = res; return self.getStore(db, tableName);})
@@ -176,7 +165,7 @@ DBConnectorIndexedDB.prototype.get = function(store, key) {
 		};
 	});
 };
-
+/*
 DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
 	if ( !arrKeys || !arrKeys.length )
 		return Promise.resolve([]);
@@ -198,11 +187,46 @@ DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
 	})
 	.then(()=>{db.close(); return arrResult;});
 };
+*/
+
+DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
+	if ( !arrKeys || !arrKeys.length )
+		return Promise.resolve([]);
+	var self = this, arrResult = [], db, store, keyName;
+	return this.getKeyName(tableName)
+	.then(res=>{
+		keyName = res;
+	})
+	.then(()=>self.openDB())
+	.then(res=>{
+		db = res;
+		// Transaction and store can't be opened using OpenDBAndStore() because Firefox would throw a TransactionInactiveError
+		// when execution several operations using the same transaction obtained from a promise.
+		tx = db.transaction(tableName, "readwrite");
+		var store = tx.objectStore(tableName);
+		const promises = [];
+		for ( var k in arrKeys ){
+			const p = self.get(store, arrKeys[k])
+			.then(res=>{
+				if (res){
+					// If IndexedDB's default key was used (no named key), we must insert its value into data sent to the server
+					if ( keyName == "Key" )
+						res.Key = arrKeys[k];
+					arrResult.push(res);
+				}
+			})
+			promises.push(p); 
+		}
+		return Promise.all(promises);
+	})
+	.then(()=>{db.close(); return arrResult;});
+};
 
 DBConnectorIndexedDB.prototype.getKeyName = function(tableName){
 	var self = this, db, store;
 	return this.openDBAndStore(tableName)
-	.then(res=>{db = res.db; store = res.store; return (store.keyPath ? store.keyPath : null)})
+	// .then(res=>{db = res.db; store = res.store; return (store.keyPath ? store.keyPath : null)})
+	.then(res=>{db = res.db; store = res.store; return (store.keyPath ? store.keyPath : "Key")})
 	.then(res=>{db.close(); return res;});
 };
 

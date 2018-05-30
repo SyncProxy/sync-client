@@ -129,13 +129,6 @@ function SyncClient(params){
 		return include("libs/toastada.css", "link");
 	})
 	.then(()=>{
-		if ( self.syncButton ){
-			docReady(function(){self.createSyncButton();});
-		}
-		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
-			this.showToast(this.welcomeMessage)
-	})
-	.then(()=>{
 		self.loadSchema();
 		var upgradePromise;
 		if ( self.upgradeNeeded(self.schema) ){
@@ -152,6 +145,13 @@ function SyncClient(params){
 				.catch(err=>self._onConnectionError(err));
 		});
 	})
+	.then(()=>{
+		if ( self.syncButton ){
+			docReady(function(){self.createSyncButton();});
+		}
+		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
+			this.showToast(this.welcomeMessage)
+	})
 	.catch(err=>alert(err));
 	
 	// Reactive sync needs to be notified of changes in online status.
@@ -164,26 +164,6 @@ function SyncClient(params){
 	window.addEventListener('syncEnd', function(e){if (self.onSyncEnd) eval(self.onSyncEnd);});		// call a custom function if any
 }
 
-/*
-SyncClient.prototype.disableIndexedDBOpen = function(){
-	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
-	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
-		// const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
-		// if ( !idb )
-			// return;
-		// idb.openSTD = idb.open;		// save original function
-		// if ( (this.autoUpgradeDB.toString() != "false") && (!localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true"))){
-		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
-			idb.indexedDBOpenDisabled = true;
-			idb.open = function(dbName){
-				console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
-				idb.restartNeeded = true;
-				return null;
-			};
-		}
-	}
-}
-*/
 SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
@@ -891,7 +871,6 @@ SyncClient.prototype.updateSyncButton = function(pressed){
 
 SyncClient.prototype.initSyncButtonPos = function(){
 	// Center button horizontally at the bootom
-	// this.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(this.syncBtn.offsetHeight)) + "px";
 	this.syncBtn.style.top = (Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0) - parseInt(this.syncBtn.offsetHeight)) + "px";
 	this.syncBtn.style.left = parseInt(parseInt(window.innerWidth)/2 - parseInt(this.syncBtn.offsetWidth)/2) + "px";
 };
@@ -906,7 +885,7 @@ SyncClient.prototype.createSyncButton = function(){
 	window.setTimeout(function(){
 		// Set button position, once its height & width are known (therefore we use a timeout)
 		self.initSyncButtonPos();
-	}, 100);
+	}, 1000);
 	const getPageXY = function(e){
 		if ( (typeof TouchEvent != "undefined") && (e instanceof TouchEvent) && e.changedTouches[0])
 			return {x: e.changedTouches[0].pageX, y: e.changedTouches[0].pageY};
