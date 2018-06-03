@@ -55,8 +55,9 @@ DBConnectorLocalStorage.prototype.getMany = function(tableName, arrPKval){
 	return new Promise(function(resolve,reject){
 		var result = [];
 		for ( var key in arrPKval ){
-			var res = JSON.parse(localStorage.getItem(arrPKval[key]));
+			var res = {};
 			res.Key = arrPKval[key]
+			res.data = JSON.parse(localStorage.getItem(arrPKval[key]));
 			result.push(res);
 		}
 		return resolve(result);
@@ -65,7 +66,7 @@ DBConnectorLocalStorage.prototype.getMany = function(tableName, arrPKval){
 
 DBConnectorLocalStorage.prototype.handleUpserts = function(tableName, upserts, keyName){
 	for ( var u in upserts )
-		localStorage.setItemSTD(upserts[u][keyName], JSON.stringify(upserts[u]));
+		localStorage.setItemSTD(upserts[u][keyName], JSON.stringify(upserts[u].data));
 	return Promise.resolve();
 };
 
