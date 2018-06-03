@@ -6,6 +6,8 @@
 // 1°) By using default modal dialog prompt
 // 2°) By referencing a custom object/function as an attribute of SyncClient, i.e.: customCredentials="mycredentials()", whose result -typically {login, password}- will be sent as-is to the server.
 
+Storage.prototype.setItemSTD = Storage.prototype.setItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
+
 function pad(a,b){return(1e15+a+"").slice(-b)}
 
 logMs = function(s){
@@ -71,6 +73,20 @@ if ( idb )
         }
     }
 })("docReady", window);
+
+SyncClient.prototype.localStorageItemsPrefix = "syncProxy.";
+
+SyncClient.prototype.setItem = function(key, value){
+	localStorage.setItemSTD(this.localStorageItemsPrefix + key, value);
+}
+
+SyncClient.prototype.getItem = function(key){
+	return localStorage.getItem(this.localStorageItemsPrefix + key);
+}
+
+SyncClient.prototype.removeItem = function(key){
+	localStorage.removeItemSTD(this.localStorageItemsPrefix + key);
+}
 
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
@@ -167,7 +183,6 @@ function SyncClient(params){
 SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
-		// if ( (this.autoUpgradeDB.toString() != "false") && (!localStorage.getItem("syncClientCode") || (localStorage.getItem("mustUpgrade") == "true"))){
 		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
 			idb.indexedDBOpenDisabled = true;
 			idb.open = function(dbName){
@@ -210,11 +225,11 @@ SyncClient.prototype.resetIndexedDBOpen = function(){
 };
 
 SyncClient.prototype.saveSchema = function(schema){
-	localStorage.setItem(this.proxyId + ".schema", JSON.stringify(schema));
+	this.setItem(this.proxyId + ".schema", JSON.stringify(schema));
 };
 
 SyncClient.prototype.loadSchema = function(schema){
-	var s = localStorage.getItem(this.proxyId + ".schema");
+	var s = this.getItem(this.proxyId + ".schema");
 	if ( s )
 		this.schema = JSON.parse(s);
 	return this.schema;
@@ -224,17 +239,16 @@ SyncClient.prototype.loadSchema = function(schema){
 SyncClient.prototype.upgradeNeeded = function(schema){
 	var needed = ( (this.autoUpgradeDB.toString() != "false") && schema && (schema.version > this.connector.getDBVersion()) );
 	if ( !needed )
-		// localStorage.setItem("mustUpgrade", false);
 		this.saveMustUpgrade(false);
 	return needed;
 };
 
 SyncClient.prototype.saveSyncProfile = function(syncProfile){
-	localStorage.setItem(this.proxyId + ".syncProfile", JSON.stringify(syncProfile));
+	this.setItem(this.proxyId + ".syncProfile", JSON.stringify(syncProfile));
 };
 
 SyncClient.prototype.loadSyncProfile = function(syncProfile){
-	var s = localStorage.getItem(this.proxyId + ".syncProfile");
+	var s = this.getItem(this.proxyId + ".syncProfile");
 	if ( s )
 		this.syncProfile = JSON.parse(s);
 	return this.syncProfile;
@@ -436,7 +450,6 @@ SyncClient.prototype._onSyncError = function(err){
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
 		this.stopAutoReconnect();
 		this.disableAutoReconnect = true;
-//		if ( this.login ) delete this.login;
 		if ( this.password ) delete this.password;
 		delete this.sessionId;
 	}
@@ -698,7 +711,6 @@ SyncClient.prototype.onSchemaUpdate = function(schema){
 	console.log("onSchemaUpdate");
 	this.saveSchema(schema);
 	this.mustUpgrade = this.upgradeNeeded(schema);
-	// localStorage.setItem("mustUpgrade", true);
 	this.saveMustUpgrade(true);
 	if (this.mustUpgrade)
 		this.showMustUpgradeWarning();
@@ -735,7 +747,7 @@ SyncClient.prototype.promptUserLogin = function(){
 				password = document.getElementById("spPassword").value;
 				if ( !password )
 					password = "";
-				localStorage.setItem(self.proxyId + ".lastLogin", login);
+				self.setItem(self.proxyId + ".lastLogin", login);
 				return true; // close the dialog
 				// return false; // nothing happens
 			}
@@ -781,8 +793,8 @@ SyncClient.prototype.getCredentials = function(){
 	}
 	if ( this.login && this.password )
 		return Promise.resolve({login:this.login, password:this.password});
-	if ( localStorage.getItem(this.proxyId + ".lastLogin") )
-		this.login = localStorage.getItem(this.proxyId + ".lastLogin");
+	if ( this.getItem(this.proxyId + ".lastLogin") )
+		this.login = this.getItem(this.proxyId + ".lastLogin");
 	var self = this;
 	var cred = this.getCustomCredentials();		// source objects may be defined to get credentials from.
 	if ( cred )
@@ -957,29 +969,29 @@ SyncClient.prototype.stopSync = function(){
 };
 
 SyncClient.prototype.getSyncClientCode = function(){
-	return localStorage.getItem(this.proxyId + ".syncClientCode");
+	return this.getItem(this.proxyId + ".syncClientCode");
 };
 
 SyncClient.prototype.saveSyncClientCode = function(code){
-	localStorage.setItem(this.proxyId + ".syncClientCode", code);
+	this.setItem(this.proxyId + ".syncClientCode", code);
 };
 
 SyncClient.prototype.getMustUpgrade = function(){
 	if ( this.autoUpgradeDB == "false")
 		return false;
-	return localStorage.getItem(this.dbName + ".mustUpgrade");
+	return this.getItem(this.dbName + ".mustUpgrade");
 };
 
 SyncClient.prototype.saveMustUpgrade = function(val){
 	console.log("this.autoUpgradeDB=" + this.autoUpgradeDB);
 	if ( this.autoUpgradeDB == "false" )
 		return;
-	localStorage.setItem(this.dbName + ".mustUpgrade", val);
+	this.setItem(this.dbName + ".mustUpgrade", val);
 };
 
 SyncClient.prototype.saveUserName = function(name, lastName){
-	localStorage.setItem(this.proxyId + ".lastUserName", name);
-	localStorage.setItem(this.proxyId + ".lastUserLastName", lastName);
+	this.setItem(this.proxyId + ".lastUserName", name);
+	this.setItem(this.proxyId + ".lastUserLastName", lastName);
 };
 
 SyncClient.prototype.authenticate = function() {
@@ -1154,7 +1166,6 @@ SyncClient.prototype.upgradeDatabase = function(newSchema){
 		.then(res=>{
 			if ( res ){
 				self.showToast("Database has been upgraded to version " + newSchema.version);
-				// localStorage.setItem("mustUpgrade", false);
 				self.saveMustUpgrade(false);
 				window.setTimeout(function(){resolve(true);}, 3000);		// necessary (only to) display toast for a while before it is cleared by "Sync started" toast.
 			}

@@ -1,5 +1,7 @@
 DBConnectorLocalStorage.prototype = new DBConnector();
-DBConnectorLocalStorage.prototype.virtualTableName = "spLocalStorage";
+
+DBConnectorLocalStorage.prototype.ignoredItemPrefix = "syncProxy";
+DBConnectorLocalStorage.prototype.virtualTableName = "LocalStorageData";
 
 // Extend setItem() function of localStorage to add automatic change-detection capacities when a key/value pair is inserted/modified.
 DBConnectorLocalStorage.prototype.monkeyPatch = function(){
@@ -10,12 +12,12 @@ DBConnectorLocalStorage.prototype.monkeyPatch = function(){
 		var oldValue = this.getItem(key);
 		if ( !oldValue )
 		{
-			if ( (that.dataFilter == null) || that.dataFilter(key) )
+			if ( !key.startsWith(self.ignoredItemPrefix) )
 				self.markAsInserted([key]);
 		}
 		else if ( oldValue != value )
 		{
-			if ( (that.dataFilter == null) || that.dataFilter(key) )
+			if ( !key.startsWith(self.ignoredItemPrefix) )
 				self.markAsUpdated([key]);
 		}
 		this.setItemSTD(key, value);
@@ -26,8 +28,8 @@ DBConnectorLocalStorage.prototype.monkeyPatch = function(){
 		var oldValue = this.getItem(key);
 		if ( oldValue )
 		{
-			if ( (that.dataFilter == null) || that.dataFilter(key) )
-				self.markAsDeleted([key]);
+			if ( !key.startsWith(self.ignoredItemPrefix) )
+				self.markAsDeleted(self.virtualTableName, [key]);
 			this.removeItemSTD(key);
 		}
 	};
@@ -37,51 +39,40 @@ DBConnectorLocalStorage.prototype.monkeyPatch = function(){
 ////////////////////
 // Sync functions //
 ////////////////////
-DBConnectorLocalStorage.prototype.markAsDirty = function(type, arrPKval){	// type: Inserts/Updates/Deletes
-	if ( !arrPKval || (arrPKval.length == 0) )
-		return;
-	var oldItem = localStorage.getItem(DBConnectorLocalStorage.prototype.virtualTableName);
-	var newItem;
-	if ( oldItem )
-	{
-		newItem = JSON.parse(oldItem);
-		newItem[type] = newItem[type].concat(arrPKval.filter(function(i){
-			return (newItem[type].indexOf(i) == -1);
-		}));
-	}
-	else
-	{
-		newItem = {Inserts:[], Updates:[], Deletes:[]};
-		newItem[type] = arrPKval;
-	}
-	localStorage.setItemSTD(DBConnectorLocalStorage.prototype.virtualTableName, JSON.stringify(newItem));
-	if ( DBConnectorLocalStorage.prototype.syncGateway )
-		DBConnectorLocalStorage.prototype.syncGateway.setSendModifTimer();
+DBConnectorLocalStorage.prototype.getKeyName = function(tableName){
+	return Promise.resolve("Key");
 };
 
 DBConnectorLocalStorage.prototype.markAsInserted = function(arrPKval){
-	this.markAsDirty("Inserts", arrPKval);
+	this.markAsUpserted(this.virtualTableName, arrPKval);
 };
 
 DBConnectorLocalStorage.prototype.markAsUpdated = function(arrPKval){
-	this.markAsDirty("Updates", arrPKval);
+	this.markAsUpserted(this.virtualTableName, arrPKval);
 };
 
-DBConnectorLocalStorage.prototype.markAsDeleted = function(arrPKval){
-	this.markAsDirty("Deletes", arrPKval);
+DBConnectorLocalStorage.prototype.getMany = function(tableName, arrPKval){
+	return new Promise(function(resolve,reject){
+		var result = [];
+		for ( var key in arrPKval ){
+			var res = JSON.parse(localStorage.getItem(arrPKval[key]));
+			res.Key = arrPKval[key]
+			result.push(res);
+		}
+		return resolve(result);
+	});
 };
 
-DBConnector.prototype.resetMarkers = function(type) {		// reset UPDATES/INSERTS/DELETES markers
-	var oldItem = localStorage.getItem(DBConnectorLocalStorage.prototype.virtualTableName);
-	var newItem;
-	if ( oldItem )
-	{
-		newItem = JSON.parse(oldItem);
-		newItem[type] = [];
-	}
-	else
-		newItem = {Inserts:[], Updates:[], Deletes:[]};
-	localStorage.setItemSTD(DBConnectorLocalStorage.prototype.virtualTableName, JSON.stringify(newItem));
+DBConnectorLocalStorage.prototype.handleUpserts = function(tableName, upserts, keyName){
+	for ( var u in upserts )
+		localStorage.setItemSTD(upserts[u][keyName], JSON.stringify(upserts[u]));
+	return Promise.resolve();
+};
+
+DBConnectorLocalStorage.prototype.handleDeletes = function(tableName, deletes){
+	for ( var d in deletes )
+		this.removeItemSTD(deletes[d]);
+	return Promise.resolve();
 };
 
 function DBConnectorLocalStorage(dbName, dbVersion)

@@ -1,3 +1,7 @@
+.tingle-modal{
+	z-index: 1000000;
+}
+
 .tingle-btn--primary {
 	background-color:#ffa726;
 }
@@ -31,7 +35,8 @@
 
 .tingle-custom-title {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-	/* font-size: 2.5em; */
+	font-size: 2em;
+	padding-bottom: 5px;
 }
 
 .tingle-custom-label {

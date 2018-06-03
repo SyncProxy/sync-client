@@ -1,25 +1,25 @@
 ////////////////////
 // Sync functions //
 ////////////////////
-DBConnector.getItem = function(key){
-	var item = localStorage.getItem(key);
-	return item;
+DBConnector.prototype.getItem = function(key){
+	return this.syncClient.getItem(key);
 }
 
-DBConnector.setItem = function(key, val){
-	localStorage.setItem(key, val);
+DBConnector.prototype.setItem = function(key, val){
+	this.syncClient.setItem(key, val);
 }
 
 DBConnector.prototype.getChangesKeyName = function(tableName, ope){		// ope: Deletes/Upserts/Sending
 	return this.name + "." + this.dbName + "." + tableName + "." + ope;
 };
 
-DBConnector.removeItem = function(key){
-	return localStorage.removeItem(key, val);
+DBConnector.prototype.removeItem = function(key){
+	return this.syncClient.removeItem(key);
 }
 
 DBConnector.prototype.getTableChangesKeys = function(tableName, ope){
-	var item = DBConnector.getItem(this.getChangesKeyName(tableName, ope));
+	// var item = DBConnector.getItem(this.getChangesKeyName(tableName, ope));
+	var item = this.getItem(this.getChangesKeyName(tableName, ope));
 	if ( item )
 		return JSON.parse(item);
 	else
@@ -51,13 +51,15 @@ DBConnector.prototype.markAsUpserted = function(tableName, arrKeys){
 	// Ignore keys that are already marked as upserted.
 	arrKeys = arrKeys.filter(i=>upserts.indexOf(i) == -1);
 	upserts = upserts.concat(arrKeys);
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));	
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));	
+	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));	
 	// Remove newly upserted keys from Deletes array, if any.
 	var deletes = this.getTableChangesKeys(tableName, "Deletes");
 	if ( !deletes )
 		deletes = [];
 	deletes = deletes.filter(i=>arrKeys.indexOf(i) == -1);
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	if ( this.syncClient )
 		this.syncClient.onClientChanges(tableName);
 };
@@ -81,8 +83,10 @@ DBConnector.prototype.markAsDeleted = function(tableName, arrKeys){
 	upserts = upserts.filter(function(i){
 		return (arrKeys.indexOf(i) == -1);
 	});
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
+	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	if ( this.syncClient )
 		this.syncClient.onClientChanges(tableName);
 };
@@ -98,12 +102,14 @@ DBConnector.prototype.markAsBeingSent = function(tableName, arrKeys){
 		return (sendings.indexOf(i) == -1);
 	});
 	sendings = sendings.concat(arrKeys);
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Sendings"), JSON.stringify(sendings));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Sendings"), JSON.stringify(sendings));
+	this.setItem(this.getChangesKeyName(tableName, "Sendings"), JSON.stringify(sendings));
 };
 
 // Return true if all changes have been sent, otherwise if some Upserts or Deletes remain to be sent
 DBConnector.prototype.resetSendings = function(tableName){
-	localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
+	// localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
+	this.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 };
 
 DBConnector.prototype.resetSentChanges = function(tableName){
@@ -125,9 +131,12 @@ DBConnector.prototype.resetSentChanges = function(tableName){
 		return (sendings.indexOf(i) == -1);
 	});
 	// Void Sending keys.
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
-	DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
-	localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
+	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
+	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
+	// localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
+	this.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 	return !( (upserts && upserts.length) || (deletes && deletes.length) );
 };
 
@@ -188,14 +197,16 @@ DBConnector.getPreferredIonicStorage = function(){
 };
 
 DBConnector.prototype.getDBVersion = function(){
-	var v = DBConnector.getItem(this.dbName + ".dbVersion");
+	// var v = DBConnector.getItem(this.dbName + ".dbVersion");
+	var v = this.getItem(this.dbName + ".dbVersion");
 	if ( v )
 		return parseInt(v);
 	return 0;
 };
 
 DBConnector.prototype.setDBVersion = function(version){
-	DBConnector.setItem(this.dbName + ".dbVersion", parseInt(version));
+	// DBConnector.setItem(this.dbName + ".dbVersion", parseInt(version)this.dbName + ".dbVersion", parseInt(version));
+	this.setItem(this.dbName + ".dbVersion", parseInt(version));
 };
 
 DBConnector.prototype.upgradeDatabase = function(newSchema){

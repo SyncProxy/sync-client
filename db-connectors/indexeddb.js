@@ -165,29 +165,6 @@ DBConnectorIndexedDB.prototype.get = function(store, key) {
 		};
 	});
 };
-/*
-DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
-	if ( !arrKeys || !arrKeys.length )
-		return Promise.resolve([]);
-	var self = this, arrResult = [], db, store;
-	return self.openDB()
-	.then(res=>{
-		db = res;
-		// Transaction and store can't be opened using OpenDBAndStore() because Firefox would throw a TransactionInactiveError
-		// when execution several operations using the same transaction obtained from a promise.
-		tx = db.transaction(tableName, "readwrite");
-		var store = tx.objectStore(tableName);
-		const promises = [];
-		for ( var k in arrKeys ){
-			const p = self.get(store, arrKeys[k])
-			.then(res=>{if (res) arrResult.push(res);})
-			promises.push(p); 
-		}
-		return Promise.all(promises);
-	})
-	.then(()=>{db.close(); return arrResult;});
-};
-*/
 
 DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
 	if ( !arrKeys || !arrKeys.length )
@@ -225,7 +202,6 @@ DBConnectorIndexedDB.prototype.getMany = function(tableName, arrKeys){
 DBConnectorIndexedDB.prototype.getKeyName = function(tableName){
 	var self = this, db, store;
 	return this.openDBAndStore(tableName)
-	// .then(res=>{db = res.db; store = res.store; return (store.keyPath ? store.keyPath : null)})
 	.then(res=>{db = res.db; store = res.store; return (store.keyPath ? store.keyPath : "Key")})
 	.then(res=>{db.close(); return res;});
 };
