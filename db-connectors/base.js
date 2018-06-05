@@ -51,14 +51,12 @@ DBConnector.prototype.markAsUpserted = function(tableName, arrKeys){
 	// Ignore keys that are already marked as upserted.
 	arrKeys = arrKeys.filter(i=>upserts.indexOf(i) == -1);
 	upserts = upserts.concat(arrKeys);
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));	
 	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));	
 	// Remove newly upserted keys from Deletes array, if any.
 	var deletes = this.getTableChangesKeys(tableName, "Deletes");
 	if ( !deletes )
 		deletes = [];
 	deletes = deletes.filter(i=>arrKeys.indexOf(i) == -1);
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	if ( this.syncClient )
 		this.syncClient.onClientChanges(tableName);

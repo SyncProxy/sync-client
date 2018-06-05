@@ -1484,9 +1484,11 @@ SyncClient.prototype.onClientChanges = function(tableName){
 	else{
 		// If table is configured for reactive sync in user's sync profile, send changes in realtime. Otherwise, they will be sent during next full sync.
 		var reactiveTables = this.getReactiveSyncTables();
+		var self = this;
 		//if ( !this.clientSyncsPending && (reactiveTables.indexOf(tableName) > -1) )
 		if ( reactiveTables.indexOf(tableName) > -1 )
-			this.clientSync(true);
+			// this.clientSync(true);
+			window.setTimeout(function(){self.clientSync(true);}, 0);
 	}
 };
 
