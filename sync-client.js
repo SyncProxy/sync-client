@@ -101,6 +101,7 @@ SyncClient.prototype.defaultParams = {
 	"syncButton": true,						// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
 	"tablesToSync": [],						// List of tables to sync with sync profiles (sync direction + reactivity)
 	"customCredentials": "",				// Custom credential function. Typically returns a {login, password} object which will be sent as-is to the server.
+	"login": "",							// Default user login.
 	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
 	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
 	"welcomeMessage": "To begin, please press Sync button",
