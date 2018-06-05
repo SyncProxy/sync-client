@@ -72,7 +72,7 @@ DBConnectorLocalStorage.prototype.handleUpserts = function(tableName, upserts, k
 
 DBConnectorLocalStorage.prototype.handleDeletes = function(tableName, deletes){
 	for ( var d in deletes )
-		this.removeItemSTD(deletes[d]);
+		localStorage.removeItemSTD(deletes[d]);
 	return Promise.resolve();
 };
 
