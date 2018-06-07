@@ -7,6 +7,7 @@
 // 2°) By referencing a custom object/function as an attribute of SyncClient, i.e.: customCredentials="mycredentials()", whose result -typically {login, password}- will be sent as-is to the server.
 
 Storage.prototype.setItemSTD = Storage.prototype.setItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
+Storage.prototype.removeItemSTD = Storage.prototype.removeItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
 
 function pad(a,b){return(1e15+a+"").slice(-b)}
 
