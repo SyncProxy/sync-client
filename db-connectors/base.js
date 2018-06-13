@@ -212,10 +212,10 @@ DBConnector.prototype.upgradeDatabase = function(newSchema){
 
 function DBConnector(dbName, syncClient)
 {
+	if ( syncClient )
+		this.syncClient = syncClient;
 	this.name = "DBConnector";
 	if ( !dbName )
 		return;
 	this.dbName = dbName;
-	if ( syncClient )
-		this.syncClient = syncClient;
 }

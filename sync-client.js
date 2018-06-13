@@ -127,7 +127,7 @@ function SyncClient(params){
 
 	this.disableIndexedDBOpen();
 	
-	include("db-connectors/base.js")
+	includeFile("db-connectors/base.js")
 	.then(()=>{
 		if ( self.connectorType == "IonicStorage" ){
 			self.dbName = "_ionicstorage";		// name of the database of Ionic Storage key-value pair store when used in IndexedDB (and WebSQL ?)
@@ -141,10 +141,10 @@ function SyncClient(params){
 		return self.loadConnector(self.connectorType, self.dbName);
 	})
 	.then(()=>{
-		return include("libs/toastada.js");
+		return includeFile("libs/toastada.js");
 	})
 	.then(()=>{
-		return include("libs/toastada.css", "link");
+		return includeFile("libs/toastada.css", "link");
 	})
 	.then(()=>{
 		self.loadSchema();
@@ -155,7 +155,7 @@ function SyncClient(params){
 		else
 			upgradePromise = Promise.resolve(false);		// no recent change in schema
 		return upgradePromise
-		.then(()=>include("sync-client-custom.js"))
+		.then(()=>includeFile("sync-client-custom.js"))
 		.then(()=>{ self.loadSyncProfile(); reactive = this.hasReactiveSync();})
 		.then(()=>{
 			if ( (reactive || !this.getTablesToSync() || !this.getTablesToSync().length) && self.isOnline() )
@@ -230,11 +230,22 @@ SyncClient.prototype.saveSchema = function(schema){
 	this.setItem(this.proxyId + ".schema", JSON.stringify(schema));
 };
 
-SyncClient.prototype.loadSchema = function(schema){
+SyncClient.prototype.loadSchema = function(){
 	var s = this.getItem(this.proxyId + ".schema");
 	if ( s )
 		this.schema = JSON.parse(s);
 	return this.schema;
+};
+
+SyncClient.prototype.getTableSchema = function(tableName){
+	if ( !this.schema )
+		this.loadSchema();
+	for ( var t in schema.Tables ){
+		var table = schema.Tables[t];
+		if ( table.Name == tableName )
+			return table;
+	}
+	return null;
 };
 
 // Compare schema version and current DB version to decide wether to upgrade database.
@@ -271,35 +282,7 @@ SyncClient.prototype.cacheSyncProfile = function(syncRules){
 ///////////////
 // Utilities //
 ///////////////
-/*
-function include(url, type){
-	url = "sync-client/" + url;
-	if ( !type )
-		type = "script";
-	return new Promise(function(resolve, reject){
-		var prop = "src";
-		if ( type == "link" )
-			prop = "href";
-		if ( document.querySelector(type + '[' + prop + '$="' + url + '"]') )
-			return resolve("Already included");		// do not include the same file twice
-		var root = document.querySelector('script[src$="sync-client.js"]').getAttribute('src').split('/')[0] + "/";
-		var script = document.createElement(type);
-		if ( type == "script" )
-			script.type = 'text/javascript';
-		else if ( type == "link" )
-			script.rel = "stylesheet";
-		script[prop] = root + url;
-		script.id = url;
-		script.onload = function(e){
-			script.loaded = true;
-			//console.log(type + " " + url + " included");
-			resolve("OK");
-		};
-		document.getElementsByTagName('head')[0].appendChild(script);
-	});
-}
-*/
-function include(url, type){
+function includeFile(url, type){
 	url = url.toLowerCase();
 	if ( !type )
 		type = "script";
@@ -333,7 +316,7 @@ function Translate(message){
 
 SyncClient.prototype.loadConnector = function(connectorType, dbName){
 	var self = this;
-	return include("db-connectors/" + connectorType + ".js")
+	return includeFile("db-connectors/" + connectorType.toLowerCase() + ".js")
 	.then(function(){
 		self.connector = eval("new DBConnector" + connectorType + "('" + dbName + "', self)");
 		console.log("Data connector " + connectorType + " successfully loaded");
@@ -507,38 +490,6 @@ SyncClient.prototype.showToastUnique = function(msg, style){
 	this.showToast(msg,style);
 };
 
-/*
-SyncClient.prototype.showToast = function(msg, style){
-	var promiseLoadToastLib;
-	if ( typeof toastada == "undefined" )
-		promiseLoadToastLib = include("libs/toastada.js")
-		.then(()=>include("libs/toastada.css", "link"))
-	else
-		promiseLoadToastLib = Promise.resolve();
-	
-	promiseLoadToastLib
-	.then(()=>{
-		// Styles: success, info, warning, error
-		if ( !style )
-			style = "warning";
-			// style = "succe";
-		switch(style){
-			case "warning": 
-				toastada.warning(msg);
-				break;
-			case "success": 
-				toastada.success(msg);
-				break;
-			case "info": 
-				toastada.info(msg);
-				break;
-			case "error": 
-				toastada.error(msg);
-				break;
-		};
-	});
-};
-*/
 SyncClient.prototype.showToast = function(msg, style){
 	// Styles: success, info, warning, error
 	if ( !style )
@@ -802,9 +753,9 @@ SyncClient.prototype.getCredentials = function(){
 	if ( cred )
 		return Promise.resolve(cred);
 	else
-		return include("libs/tingle.js")
-		.then(()=>include("libs/tingle.css", "link"))
-		.then(()=>include("libs/tingle-custom.css", "link"))
+		return includeFile("libs/tingle.js")
+		.then(()=>includeFile("libs/tingle.css", "link"))
+		.then(()=>includeFile("libs/tingle-custom.css", "link"))
 		.then(()=>{return self.promptUserLogin();})
 		//.then(res=>{if (!res.login ||!res.password) return null; self.login = res.login; self.password = res.password; return res;})
 		.then(res=>{if (!res.login) return null; self.login = res.login; self.password = res.password; return res;})
@@ -890,7 +841,7 @@ SyncClient.prototype.initSyncButtonPos = function(){
 };
 
 SyncClient.prototype.createSyncButton = function(){
-	include("libs/sync-button.css", "link");
+	includeFile("libs/sync-button.css", "link");
 	var self = this;
 	window.onresize = function(e){
 		self.initSyncButtonPos(e);

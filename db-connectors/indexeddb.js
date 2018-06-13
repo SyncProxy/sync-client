@@ -234,7 +234,6 @@ DBConnectorIndexedDB.prototype.handleDeletes = function(tableName, deletes){
 	.then(res=>{db.close(); return res;});
 };
 
-
 DBConnectorIndexedDB.prototype.upsertMany = function(store, upserts, keyName){
 	if ( !upserts || !upserts.length )
 		return Promise.resolve();
@@ -284,16 +283,12 @@ DBConnectorIndexedDB.prototype.deleteOne = function(store, key){
 	});
 };
 
-/////////////
-// Syncing //
-/////////////
-
 /////////////////
 // Constructor //
 /////////////////
-function DBConnectorIndexedDB(dbName, dbVersion, syncClient)
+function DBConnectorIndexedDB(dbName, syncClient)
 {
-	DBConnector.call(this, dbName, dbVersion, syncClient);
+	DBConnector.call(this, dbName, syncClient);
 	this.name = "IndexedDB";
 	this.monkeyPatch();
 }
