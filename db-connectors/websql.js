@@ -7,11 +7,15 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 	var self = this;
 	console.log("Patching WebSQL functions...");
 	// Extend openDatabase() to implement change detection on INSERTs/UPDATEs/DELETEs queries.
+	if ( typeof openDatabaseSTD != "undefined")
+		return;
 	openDatabaseSTD = openDatabase;		// save standard openDatabase() function.
 	openDatabase = function(name, version, comments, size, onSuccess){
 		var db = openDatabaseSTD(name, version, comments, size, onSuccess);
-		db.__proto__.transactionSTD = db.__proto__.transaction;		// save standard transaction() function.
-		db.__proto__.transaction = function(func, onTxError, onTxSuccess){
+		if ( typeof db.transactionSTD != "undefined" )
+			return;
+		db.transactionSTD = db.__proto__.transaction;		// save standard transaction() function.
+		db.transaction = function(func, onTxError, onTxSuccess){
 			var funcORG = func;		// save user function.
 			func = function(tx){		// extend user func to intercept INSERT/UPDATE/DELETE queries and handle changes.
 				tx.executeSqlSTD = tx.executeSql;		// save standard executeSql() function.
@@ -47,7 +51,7 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 						// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
 						var sqlSelect = self.convertSqlToSelect(sql, sqlObject.table);
 						db.transactionSTD(function(tx) {
-							tx.executeSql(sqlSelect, [], function (tx, data) {		// first, execute the SELECT
+							tx.executeSql(sqlSelect, args, function (tx, data) {		// first, execute the SELECT
 								// Result of the SELECT: save PK's of records being updated or modified.
 								var pks = [];
 								for (var i = 0; i < data.rows.length; i++){
@@ -69,7 +73,6 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 			};
 			return db.transactionSTD(func, onTxError, onTxSuccess);
 		};
-		// self.memorizePKs(db);
 		return db;
 	}	
 	console.log("...patched");
@@ -198,7 +201,7 @@ DBConnectorWebSQL.prototype.getMany = function(tableName, arrKeys){
 		return Promise.resolve([]);
 	var self = this, keyName = this.getKeyName(tableName, true);
 	return new Promise(function(resolve,reject){
-		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		db.transactionSTD(function(tx){
 			var sql = "SELECT " + self.getSyncColumns(tableName).join(",") + " FROM " + tableName + " WHERE " + keyName + " IN (" + arrKeys.join(",") + ")";
 			tx.executeSql(sql, [],
@@ -220,46 +223,13 @@ DBConnectorWebSQL.prototype.getMany = function(tableName, arrKeys){
 ///////////////////////////
 // Sync data from server //
 ///////////////////////////
-/*
-DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName){
-	var self = this;
-	return new Promise(function(resolve,reject){
-		var cols = self.getSyncColumns(tableName);
-		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
-		db.transactionSTD(function(tx){
-			var sql = "INSERT INTO `" + tableName + "` (`" + cols.join("`,`") + "`) VALUES (" + cols.map(c=>"?").join(",") + ")";
-			// var sql = "INSERT INTO " + tableName + " (" + cols.join(",") + ") VALUES (" + cols.map(c=>"?").join(",") + ")";
-			var numInserts = 0;
-			for ( var u in upserts ){
-				// Reorder current row's properties (JSON) to match cols order.
-				var currRow = upserts[u];
-				var dataToInsert = [];
-				for ( c in cols )
-					dataToInsert.push(currRow[cols[c]]);
-				tx.executeSql(sql, dataToInsert,
-					function(tx, data){
-						numInserts++;
-						if ( numInserts == upserts.length )
-							return resolve(numInserts);
-					},
-					function(tx, err){
-						console.log(err);
-						reject(err);
-					}
-				);
-			}
-		});
-	});
-};
-*/
-
 DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName){
 	// Try to UPDATE each received row to local DB, if not exists (rowsAffected = 0) then INSERT new row
 	// Note: we don't use INSERT OR REPLACE INTO query, because it destroys existing rows and create new ones, resulting in new ROWID and PK in case of AUTOINCREMENT PK
 	var self = this;
 	return new Promise(function(resolve,reject){
 		var cols = self.getSyncColumns(tableName);
-		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		var numInserts = 0;
 		var sqlUpdate = "UPDATE `" + tableName + "` SET " + cols.map(c=>c + "=?").join(",") + " WHERE `" + keyName + "`=?";
 		var sqlInsert = "INSERT INTO `" + tableName + "` (" + cols.join(",") + ") VALUES (" + cols.map(c=>"?").join(",") + ")";
@@ -271,10 +241,13 @@ DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName
 					const dataToInsert = [];
 					for ( c in cols )
 						dataToInsert.push(currRow[cols[c]]);
-					tx.executeSql(sqlUpdate, dataToInsert.concat(currRow[keyName]), function(tx, result){
+					tx.executeSql(sqlUpdate, dataToInsert.concat([currRow[keyName]]), function(tx, result){
 						// If current row was not updated, insert it
-						if ( !result.rowsAffected )
-							tx.executeSql(sqlInsert, dataToInsert);
+						if ( !result.rowsAffected ){
+							tx.executeSql(sqlInsert, dataToInsert, function(rx,result){
+								numInserts += result.rowsAffected;
+							});
+						}
 					});
 				}
 			},
@@ -292,7 +265,7 @@ DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName
 DBConnectorWebSQL.prototype.handleDeletes = function(tableName, deletes, keyName){
 	var self = this;
 	return new Promise(function(resolve,reject){
-		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		db.transactionSTD(function(tx){
 			var sql = "DELETE FROM `" + tableName + "` WHERE " + keyName + " IN (" + deletes.map(d=>"?").join(",") + ")";
 			tx.executeSql(sql, deletes,
