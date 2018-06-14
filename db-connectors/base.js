@@ -81,9 +81,7 @@ DBConnector.prototype.markAsDeleted = function(tableName, arrKeys){
 	upserts = upserts.filter(function(i){
 		return (arrKeys.indexOf(i) == -1);
 	});
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
 	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	if ( this.syncClient )
 		this.syncClient.onClientChanges(tableName);
@@ -100,13 +98,11 @@ DBConnector.prototype.markAsBeingSent = function(tableName, arrKeys){
 		return (sendings.indexOf(i) == -1);
 	});
 	sendings = sendings.concat(arrKeys);
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Sendings"), JSON.stringify(sendings));
 	this.setItem(this.getChangesKeyName(tableName, "Sendings"), JSON.stringify(sendings));
 };
 
 // Return true if all changes have been sent, otherwise if some Upserts or Deletes remain to be sent
 DBConnector.prototype.resetSendings = function(tableName){
-	// localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 	this.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 };
 
@@ -129,11 +125,8 @@ DBConnector.prototype.resetSentChanges = function(tableName){
 		return (sendings.indexOf(i) == -1);
 	});
 	// Void Sending keys.
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
 	this.setItem(this.getChangesKeyName(tableName, "Upserts"), JSON.stringify(upserts));
-	// DBConnector.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
 	this.setItem(this.getChangesKeyName(tableName, "Deletes"), JSON.stringify(deletes));
-	// localStorage.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 	this.removeItem(this.getChangesKeyName(tableName, "Sendings"));
 	return !( (upserts && upserts.length) || (deletes && deletes.length) );
 };

@@ -7,15 +7,11 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 	var self = this;
 	console.log("Patching WebSQL functions...");
 	// Extend openDatabase() to implement change detection on INSERTs/UPDATEs/DELETEs queries.
-	if ( typeof openDatabaseSTD != "undefined")
-		return;
 	openDatabaseSTD = openDatabase;		// save standard openDatabase() function.
 	openDatabase = function(name, version, comments, size, onSuccess){
 		var db = openDatabaseSTD(name, version, comments, size, onSuccess);
-		if ( typeof db.transactionSTD != "undefined" )
-			return;
-		db.transactionSTD = db.__proto__.transaction;		// save standard transaction() function.
-		db.transaction = function(func, onTxError, onTxSuccess){
+		db.__proto__.transactionSTD = db.__proto__.transaction;		// save standard transaction() function.
+		db.__proto__.transaction = function(func, onError, onSuccess){
 			var funcORG = func;		// save user function.
 			func = function(tx){		// extend user func to intercept INSERT/UPDATE/DELETE queries and handle changes.
 				tx.executeSqlSTD = tx.executeSql;		// save standard executeSql() function.
@@ -26,6 +22,8 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 						onSuccess = function(tx, data){
 							// If datas have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
 							var rowids = [];
+							console.log("data:");
+							console.dir(data);
 							for ( var r = 0; r < data.rowsAffected; r++ ){
 								var rowid = data.insertId - r;
 								rowids.push(rowid);
@@ -51,9 +49,11 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 						// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
 						var sqlSelect = self.convertSqlToSelect(sql, sqlObject.table);
 						db.transactionSTD(function(tx) {
-							tx.executeSql(sqlSelect, args, function (tx, data) {		// first, execute the SELECT
+							tx.executeSql(sqlSelect, [], function (tx, data) {		// first, execute the SELECT
 								// Result of the SELECT: save PK's of records being updated or modified.
 								var pks = [];
+							console.log("data:");
+							console.dir(data);
 								for (var i = 0; i < data.rows.length; i++){
 									pks.push(data.rows.item(i)[sqlObject.pkCol]);
 								}
@@ -63,16 +63,16 @@ DBConnectorWebSQL.prototype.monkeyPatch = function(){
 									self.markAsDeleted(sqlObject.table, pks);
 							});
 							tx.executeSql(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
-						},
-						onTxError, onTxSuccess);
+						});
 					}
 					else
 						tx.executeSqlSTD(sql, args, onSuccess, onError);
 				};
 				return funcORG(tx);
 			};
-			return db.transactionSTD(func, onTxError, onTxSuccess);
+			return db.transactionSTD(func, onError, onSuccess);
 		};
+		// self.memorizePKs(db);
 		return db;
 	}	
 	console.log("...patched");
@@ -175,134 +175,22 @@ DBConnectorWebSQL.prototype.getDBVersion = function(){
 	return "1.0";
 };
 
-//////////////////////
-// Schema functions //
-//////////////////////
-/*
-DBConnectorWebSQL.prototype.getColDef = function(table, colName){
-	for ( var c in table.Columns ){
-		var col = table.Columns[c];
-		if ( col.Name == colName ){
-			var type = "", size, nullable, defaultVal;
-			switch ( col.Type ){
-				case "INT":
-				case "BIGINT":
-				case "SMALLINT":
-				case "MEDIUMINT":
-					type = "INTEGER";
-					break;
-				case "FLOAT":
-				case "DECIMAL":
-				case "REAL":
-					type = "REAL";
-					break;
-				case "DATE":
-				case "DATETIME":
-					type = "TEXT";
-					break;
-				case "VARCHAR":
-				case "NVARCHAR":
-					type = "TEXT";
-					size = col.Size;
-					break;
-				default:
-					type = BLOB;
-			}
-			if ( col.Nullable === false )
-				nullable = " NOT NULL";
-			if ( size > 0 )
-				size = "(" + size + ")";
-			if ( defaultVal !== null )
-				defaultVal = " DEFAULT " + defaultVal;
-			return type + size + nullable + defaultVal;
-		}
-	}
-	return null;
-};
-*/
-DBConnectorWebSQL.prototype.getColDef = function(table, colName){
-	for ( var c in table.Columns ){
-		var col = table.Columns[c];
-		if ( col.Name == colName ){
-			var primaryKey = "", size = col.Size, nullable = col.Nullable, defaultVal = col.Default;
-			if ( col.Name == table.PK )
-				primaryKey = " PRIMARY KEY";
-			if ( (nullable === false) && (defaultVal !== null) )
-				nullable = " NOT NULL";
-			else
-				nullable = "";
-			if ( size > 0 )
-				size = "(" + size + ")";
-			else
-				size = "";
-			if ( defaultVal !== null )
-				defaultVal = " DEFAULT " + defaultVal;
-			else
-				defaultVal = "";
-			return col.Type + primaryKey + size + nullable + defaultVal;
-		}
-	}
-	return null;
-};
-
-DBConnectorWebSQL.prototype.upgradeDatabase = function(schema){
+DBConnectorWebSQL.prototype.upgradeDatabase = function(newSchema){
 	console.log("upgradeDatabase");
 	var currVersion = this.getDBVersion();
-	console.log("currVersion=" + currVersion + " newSchema.version=" + schema.version);
+	console.log("currVersion=" + currVersion + " newSchema.version=" + newSchema.version);
 	var firstUpgrade;
 	if ( !currVersion ){
 		firstUpgrade = true;
 		currVersion = 1;		// first upgrade: force version to 1, whatever newSchema version
 	}
-	if ( !firstUpgrade && (schema.version <= currVersion) )
+	if ( !firstUpgrade && (newSchema.version <= currVersion) )
 		return Promise.resolve(false);		// nothing to do
 	var self = this;
-	console.log("upgradeDatabase to version=" + schema.version);
+	console.log("upgradeDatabase to version=" + newSchema.version);
 	
-	return new Promise(function(resolve,reject){
-		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
-		db.transactionSTD(function(tx){
-			// Create tables of the new schema (when not exist)
-			for ( var t in schema.Tables ){
-				const table = schema.Tables[t];
-				if ( !table.PK ){
-					console.log("Table " + table.Name + " was not created because it has not primary key");
-					continue;
-				}
-				var sql = "CREATE TABLE IF NOT EXISTS `" + table.Name + "` (`" + table.PK + "` " + self.getColDef(table, table.PK) + ")";
-				tx.executeSql(sql, [],
-					function(tx, result){
-						// Create columns
-						for ( var c in table.Columns ){
-							const col = table.Columns[c];
-							if ( col.Name == table.PK )
-								continue;
-							var sqlAddCol = "ALTER TABLE `" + table.Name + "` ADD `" + col.Name + "` " + self.getColDef(table, col.Name);
-							console.log(sqlAddCol);
-							tx.executeSql(sqlAddCol, [], null, function(tx,err){
-								console.log("Column " + table.Name + "." + col.Name + " was not added (maybe it already exists ?)");
-								console.dir(err);
-								// reject(err);
-							});
-						}
-					},
-					function(tx, err){
-						console.log("Error creating table " + table.Name);
-						console.dir(err);
-						reject(err);
-					}
-				);
-			}
-		}, 
-		function(err){
-			console.log("upgradeDatabase error:");
-			console.dir(err);
-			return reject(err);
-		},
-		function(){
-			return resolve();
-		});
-	});
+	// TODO: upgrade database structures
+	return Promise.resolve();
 };
 
 /////////////////////////
@@ -313,7 +201,7 @@ DBConnectorWebSQL.prototype.getMany = function(tableName, arrKeys){
 		return Promise.resolve([]);
 	var self = this, keyName = this.getKeyName(tableName, true);
 	return new Promise(function(resolve,reject){
-		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		db.transactionSTD(function(tx){
 			var sql = "SELECT " + self.getSyncColumns(tableName).join(",") + " FROM " + tableName + " WHERE " + keyName + " IN (" + arrKeys.join(",") + ")";
 			tx.executeSql(sql, [],
@@ -335,32 +223,54 @@ DBConnectorWebSQL.prototype.getMany = function(tableName, arrKeys){
 ///////////////////////////
 // Sync data from server //
 ///////////////////////////
+/*
 DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName){
-	// Try to UPDATE each received row to local DB, if not exists (rowsAffected = 0) then INSERT new row
-	// Note: we don't use INSERT OR REPLACE INTO query, because it destroys existing rows and create new ones, resulting in new ROWID and PK in case of AUTOINCREMENT PK
 	var self = this;
 	return new Promise(function(resolve,reject){
 		var cols = self.getSyncColumns(tableName);
-		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		db.transactionSTD(function(tx){
+			var sql = "INSERT INTO `" + tableName + "` (`" + cols.join("`,`") + "`) VALUES (" + cols.map(c=>"?").join(",") + ")";
+			// var sql = "INSERT INTO " + tableName + " (" + cols.join(",") + ") VALUES (" + cols.map(c=>"?").join(",") + ")";
+			var numInserts = 0;
+			for ( var u in upserts ){
+				// Reorder current row's properties (JSON) to match cols order.
+				var currRow = upserts[u];
+				var dataToInsert = [];
+				for ( c in cols )
+					dataToInsert.push(currRow[cols[c]]);
+				tx.executeSql(sql, dataToInsert,
+					function(tx, data){
+						numInserts++;
+						if ( numInserts == upserts.length )
+							return resolve(numInserts);
+					},
+					function(tx, err){
+						console.log(err);
+						reject(err);
+					}
+				);
+			}
+		});
+	});
+};
+*/
+DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName){
+	var self = this;
+	return new Promise(function(resolve,reject){
+		var cols = self.getSyncColumns(tableName);
+		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		var numInserts = 0;
-		var sqlUpdate = "UPDATE `" + tableName + "` SET " + cols.map(c=>c + "=?").join(",") + " WHERE `" + keyName + "`=?";
-		var sqlInsert = "INSERT INTO `" + tableName + "` (" + cols.join(",") + ") VALUES (" + cols.map(c=>"?").join(",") + ")";
 		db.transactionSTD(
 			function(tx){
+				var sql = "INSERT OR REPLACE INTO `" + tableName + "` (`" + cols.join("`,`") + "`) VALUES (" + cols.map(c=>"?").join(",") + ")";
 				for ( var u in upserts ){
 					// Reorder current row's properties (JSON) to match cols order.
 					var currRow = upserts[u];
-					const dataToInsert = [];
+					var dataToInsert = [];
 					for ( c in cols )
 						dataToInsert.push(currRow[cols[c]]);
-					tx.executeSql(sqlUpdate, dataToInsert.concat([currRow[keyName]]), function(tx, result){
-						// If current row was not updated, insert it
-						if ( !result.rowsAffected ){
-							tx.executeSql(sqlInsert, dataToInsert, function(rx,result){
-								numInserts += result.rowsAffected;
-							});
-						}
-					});
+					tx.executeSql(sql, dataToInsert, function(){numInserts++;});
 				}
 			},
 			function(err){
@@ -377,7 +287,7 @@ DBConnectorWebSQL.prototype.handleUpserts = function(tableName, upserts, keyName
 DBConnectorWebSQL.prototype.handleDeletes = function(tableName, deletes, keyName){
 	var self = this;
 	return new Promise(function(resolve,reject){
-		var db = openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
+		var db = openDatabaseSTD(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		db.transactionSTD(function(tx){
 			var sql = "DELETE FROM `" + tableName + "` WHERE " + keyName + " IN (" + deletes.map(d=>"?").join(",") + ")";
 			tx.executeSql(sql, deletes,
