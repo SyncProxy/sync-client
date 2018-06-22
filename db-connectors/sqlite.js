@@ -17,7 +17,6 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 			.then(res=>{
 				sqlObject = res;
 				if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "INSERT INTO") || (sqlObject.ope == "INSERT OR REPLACE INTO")) ){
-					alert("pkCol=" + sqlObject.pkCol);
 					var onSuccessORG = onSuccess;
 					onSuccess = function(data){
 						// If datas have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
@@ -34,7 +33,6 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 								pks.push(data.rows.item(i)[sqlObject.pkCol]);
 							}
 							// Save PKs of inserted records into localStorage.
-							myalert("markAsUpserted " + pks.join(","));
 							self.markAsUpserted(sqlObject.table, pks);
 						});
 						if ( onSuccessORG )
@@ -60,7 +58,6 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 						},
 						function(err){
 							console.log(err);
-							myalert(err);
 						}
 					);
 					return db.executeSqlSTD(sql, args, onSuccess, onError);

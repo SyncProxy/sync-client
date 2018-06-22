@@ -168,7 +168,7 @@ DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 		return self.getTableInfoFromDatabase(tableName);		// get columns definition from database and assume they are all synched
 	})
 	.then(res=>res.map(c=>c.name))
-	.catch(err=>{console.log(err); myalert(err);});
+	.catch(err=>{console.log(err);});
 };
 
 // Extract the type of operation (INSERT/UPDATE/DELETE) and the destination table. Also return table's PK column.
@@ -303,41 +303,6 @@ DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
 /////////////////////////
 // Sync data to server //
 /////////////////////////
-/*
-DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
-	if ( !arrKeys || !arrKeys.length )
-		return Promise.resolve([]);
-	var self = this, keyName;
-	return 	this.getKeyName(tableName, true)
-	.then(res=>{
-		keyName = res;
-		var db = self.openDB();
-		return new Promise(function(resolve,reject){
-			db.transactionSTD(function(tx){
-				var syncCols = self.getSyncColumns(tableName).join(",");
-				if ( syncCols == "" )
-					syncCols = "*";
-				var sql = "SELECT " + syncCols + " FROM " + tableName + " WHERE " + keyName + " IN (" + arrKeys.join(",") + ")";
-				myalert(sql);
-				tx.executeSql(sql, [],
-					function(tx, data){
-						var result = [];
-						for ( var r = 0; r < data.rows.length; r++ )
-							result.push(data.rows.item(r))
-						return resolve(result);
-					},
-					function(tx, err){
-						reject(err);
-					}
-				);
-			});
-		})
-		.catch(err=>{console.log(err); myalert(err);});
-		
-	})
-	.catch(err=>{console.log(err); myalert(err);});
-};
-*/
 DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
 	if ( !arrKeys || !arrKeys.length )
 		return Promise.resolve([]);
@@ -352,7 +317,6 @@ DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
 			var db = self.openDB();
 			db.transactionSTD(function(tx){
 				var sql = "SELECT " + syncCols + " FROM " + tableName + " WHERE " + keyName + " IN (" + arrKeys.join(",") + ")";
-				myalert(sql);
 				tx.executeSql(sql, [],
 					function(tx, data){
 						var result = [];
@@ -361,7 +325,6 @@ DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
 						return resolve(result);
 					},
 					function(tx, err){
-						myalert(err);
 						console.log(err);
 						reject(err);
 					}
@@ -369,7 +332,7 @@ DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
 			});
 		})
 	})
-	.catch(err=>{console.log(err); myalert(err);});
+	.catch(err=>{console.log(err);});
 };
 
 
@@ -388,8 +351,6 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 			var numInserts = 0;
 			var sqlUpdate = "UPDATE `" + tableName + "` SET " + cols.filter(c=> c != keyName).map(c=>c + "=?").join(",") + " WHERE `" + keyName + "`=?";		// key value can't be updated
 			var sqlInsert = "INSERT INTO `" + tableName + "` (" + cols.join(",") + ") VALUES (" + cols.map(c=>"?").join(",") + ")";
-			myalert(sqlUpdate);
-			myalert(sqlInsert);
 			db.transactionSTD(
 				function(tx){
 					for ( var u in upserts ){
@@ -402,7 +363,6 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 								dataToUpdate.push(currRow[cols[c]]);
 							dataToInsert.push(currRow[cols[c]]);
 						}
-						myalert("dataToInsert: " + dataToInsert.join(","));
 						tx.executeSql(sqlUpdate, dataToUpdate.concat([currRow[keyName]]), function(tx, result){
 							// If current row was not updated, insert it
 							if ( !result.rowsAffected ){
@@ -426,13 +386,12 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 					reject(err);
 				},
 				function(){
-					myalert("numInserts: " + numInserts);
 					return resolve(numInserts);
 				},
 			);
 		});
 	})
-	.catch(err=>{console.log(err); myalert(err);});
+	.catch(err=>{console.log(err);});
 };
 
 DBConnectorSQLiteBase.prototype.handleDeletes = function(tableName, deletes, keyName){
