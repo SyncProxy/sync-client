@@ -57,8 +57,7 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 							self.markAsDeleted(sqlObject.table, pks);
 					});
 					tx.executeSql(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
-				},
-				onTxError, onTxSuccess);
+				});
 			}
 			else
 				tx.executeSqlSTD(sql, args, onSuccess, onError);
