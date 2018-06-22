@@ -56,8 +56,8 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 						else if ( sqlObject.ope == "DELETE FROM" )
 							self.markAsDeleted(sqlObject.table, pks);
 					});
-					tx.executeSql(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
 				});
+				tx.executeSqlSTD(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
 			}
 			else
 				tx.executeSqlSTD(sql, args, onSuccess, onError);
@@ -165,9 +165,8 @@ DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 	.then(res=>{
 		if ( res.length || !self.getTableInfoFromDatabase )
 			return res;
-		return self.getTableInfoFromDatabase(tableName);		// get columns definition from database and assume they are all synched
+		return self.getTableInfoFromDatabase(tableName).map(c=>c.name);		// get columns definition from database and assume they are all synched
 	})
-	.then(res=>res.map(c=>c.name))
 	.catch(err=>{console.log(err);});
 };
 
@@ -254,7 +253,6 @@ DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
 	console.log("upgradeDatabase to version=" + schema.version);
 	
 	return new Promise(function(resolve,reject){
-		// var db = DBConnectorSQLiteBase.plugin.openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		var db = self.openDB();
 		db.transactionSTD(function(tx){
 			// Create tables of the new schema (when not exist)
@@ -371,12 +369,14 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 								},
 								function(tx, err){
 									console.log(err);
+									console.log(sqlInsert);
 									reject(err);
 								});
 							}
 						},
 						function(tx, err){
 							console.log(err);
+							console.log(sqlUpdate);
 							reject(err);
 						});
 					}
