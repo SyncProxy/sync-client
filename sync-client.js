@@ -6,6 +6,10 @@
 // 1°) By using default modal dialog prompt
 // 2°) By referencing a custom object/function as an attribute of SyncClient, i.e.: customCredentials="mycredentials()", whose result -typically {login, password}- will be sent as-is to the server.
 
+myalert = function(msg){
+	alert(msg);
+};
+
 Storage.prototype.setItemSTD = Storage.prototype.setItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
 Storage.prototype.removeItemSTD = Storage.prototype.removeItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
 
@@ -96,6 +100,7 @@ SyncClient.prototype.defaultParams = {
 	"proxyId": "",							// ID of the server-side sync proxy to sync with. If blank, user's default sync proxy will be retrieved by sync server
 	"connectorType": "IndexedDB",			// Client database connector: IndexedDB / WebSQL / SQLite / LocalStorage / IonicStorage
 	"dbName": "",							// Client databse name
+	"dbLocation": "default",				// Client databse location (used by SQLite driver)
 	"autoUpgradeDB": "true",				// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
 	"autoInit": true,						// If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 	"reactiveSync": true,					// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
@@ -135,7 +140,9 @@ function SyncClient(params){
 			self.tablesToSync = ["_ionickv"];
 		}
 		if ( !(self.tablesToSync instanceof Array) )
-		self.tablesToSync = self.tablesToSync.split(',');		// tablesToSync may be passed as a list of tables separated with ","
+			self.tablesToSync = self.tablesToSync.split(',');		// tablesToSync may be passed as a list of tables separated with ","
+		if ( (self.connectorType == "WebSQL") || (self.connectorType == "SQLite") )
+			return includeFile("db-connectors/sqlite-base.js");
 	})
 	.then(()=>{
 		return self.loadConnector(self.connectorType, self.dbName);
@@ -170,7 +177,7 @@ function SyncClient(params){
 		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
 			this.showToast(this.welcomeMessage)
 	})
-	.catch(err=>alert(err));
+	.catch(err=>console.log(err));
 	
 	// Reactive sync needs to be notified of changes in online status.
 	//if ( reactive )
@@ -573,15 +580,26 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			self._onAuthenticated();
 			return resolve(data);
 		}
-		if ( data.serverSync && !self.serverSyncsPending && !self.clientSyncsPending){
+		if ( data.serverSync ){
 			// A server sync has been orderd by server => json.serverSync contains the list of tables to sync.
-			self.serverSync(true, data.serverSync)
-			.then(res=>resolve(res));
+			if ( !self.serverSyncsPending && !self.clientSyncsPending ){
+				self.serverSync(true, data.serverSync)
+				.then(res=>resolve(res));
+			}
+			else
+				return resolve();
 		}
-		else if ( data.schema && data.schema.Tables && data.schema.Tables.length ){
+/*		else if ( data.schema && data.schema.Tables && data.schema.Tables.length ){
 			if (self.clientSyncsPending > 0)
 				self.clientSyncsPending--;
 			self.onSchemaUpdate(data.schema);
+			return resolve();
+		}*/
+		else if ( data.schema ){
+			if (self.clientSyncsPending > 0)
+				self.clientSyncsPending--;
+			if ( data.schema.Tables && data.schema.Tables.length )
+				self.onSchemaUpdate(data.schema);
 			return resolve();
 		}
 		else if (data.syncRules){
@@ -591,7 +609,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			if ( data.syncRules == {} )
 				reject("No tables to sync");
 			else{
-				self.cacheSyncProfile(data.syncRules)
+				self.cacheSyncProfile(data.syncRules);
 				return self.getAndSendClientChanges(self.syncType == 2)
 				.then(()=>resolve());
 			}
@@ -648,6 +666,10 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			if (self.serverSyncsPending > 0)
 				self.serverSyncsPending--;
 			self._onSyncEnd(self.syncType == 2);
+		}
+		else{
+			self._onSyncError("Bad server response");
+			return resolve("Bad server response");
 		}
 	});
 };
