@@ -238,12 +238,13 @@ SyncClient.prototype.saveSchema = function(schema){
 };
 
 SyncClient.prototype.loadSchema = function(){
+	console.log("loadSchema");
 	var s = this.getItem(this.proxyId + ".schema");
 	if ( s )
 		this.schema = JSON.parse(s);
 	return this.schema;
 };
-
+/*
 SyncClient.prototype.getTableSchema = function(tableName){
 	if ( !this.schema )
 		this.loadSchema();
@@ -254,6 +255,7 @@ SyncClient.prototype.getTableSchema = function(tableName){
 	}
 	return null;
 };
+*/
 
 // Compare schema version and current DB version to decide wether to upgrade database.
 SyncClient.prototype.upgradeNeeded = function(schema){

@@ -1,6 +1,8 @@
 DBConnectorSQLiteBase.prototype = new DBConnector();
 DBConnectorSQLiteBase.DEFAULT_DB_SIZE = 20000000;
 
+includeFile("libs/sqliteparser.js");
+
 // The openDatabase() parameters are different between WebSQL and SQLite implementations
 DBConnectorSQLiteBase.prototype.openDB = function(){
 };
@@ -15,7 +17,7 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 		return self.parseSql(sql)		// check if sql code contains an INSERT/UPDATE or DELETE operation (otherwise, will return null).
 		.then(res=>{
 			sqlObject = res;
-			if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "INSERT INTO") || (sqlObject.ope == "INSERT OR REPLACE INTO")) ){
+			if ( sqlObject && sqlObject.pkCol && (sqlObject.ope == "INSERT") ){
 				var onSuccessORG = onSuccess;
 				onSuccess = function(tx, data){
 					// If datas have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
@@ -28,11 +30,10 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 					var sqlSelect = "SELECT " + sqlObject.pkCol + " FROM " + sqlObject.table + " WHERE rowid IN (" + rowids.join(",") + ")";
 					db.transactionSTD(function(tx) {
 						tx.executeSql(sqlSelect, [], function (tx, data) {
-							var pks = [];
-							for (var i = 0; i < data.rows.length; i++){
-								pks.push(data.rows.item(i)[sqlObject.pkCol]);
-							}
 							// Save PKs of inserted records into localStorage.
+							var pks = [];
+							for (var i = 0; i < data.rows.length; i++)
+								pks.push(data.rows.item(i)[sqlObject.pkCol]);
 							self.markAsUpserted(sqlObject.table, pks);
 						});
 					});
@@ -40,29 +41,31 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 						onSuccessORG(tx, data);
 				};
 			}
-			if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE FROM")) ){
+			if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE")) ){
 				// If datas are to be updated or deleted, previously save their PKs into localStorage.
 				// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
-				var sqlSelect = self.convertSqlToSelect(sql, sqlObject.table);
+				var selectQuery = self.convertToSelect(sqlObject.table, sql, args);
 				db.transactionSTD(function(tx) {
-					tx.executeSql(sqlSelect, args, function (tx, data) {		// first, execute the SELECT
+					tx.executeSql(selectQuery.sql, selectQuery.args, function (tx, data){		// first, execute the SELECT
 						// Result of the SELECT: save PK's of records being updated or modified.
 						var pks = [];
-						for (var i = 0; i < data.rows.length; i++){
+						for (var i = 0; i < data.rows.length; i++)
 							pks.push(data.rows.item(i)[sqlObject.pkCol]);
-						}
 						if ( sqlObject.ope == "UPDATE" )
 							self.markAsUpserted(sqlObject.table, pks);
-						else if ( sqlObject.ope == "DELETE FROM" )
+						else if ( sqlObject.ope == "DELETE" )
 							self.markAsDeleted(sqlObject.table, pks);
+						tx.executeSql(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
+					},
+					function(tx, err){
+						console.log(err);
+						console.log(selectQuery.sql);
 					});
 				});
-				tx.executeSqlSTD(sql, args, onSuccess, onError);		// finally execute the UPDATE or DELETE
 			}
 			else
 				tx.executeSqlSTD(sql, args, onSuccess, onError);
-		})
-		.catch(err=>console.log(err));
+		});
 	};
 };
 
@@ -75,9 +78,8 @@ DBConnectorSQLiteBase.prototype.monkeyPatch = function(){
 		DBConnectorSQLiteBase.plugin.openDatabaseSTD = DBConnectorSQLiteBase.plugin.openDatabase;		// save standard DBConnectorSQLiteBase.plugin.openDatabase() function.
 		DBConnectorSQLiteBase.plugin.openDatabase = function(param1, param2, param3, param4, param5){
 			var db = DBConnectorSQLiteBase.plugin.openDatabaseSTD(param1, param2, param3, param4, param5);
-
+			
 			if ( typeof db.transactionSTD == "undefined" ){
-				// db.transactionSTD = db.__proto__.transaction;		// save standard transaction() function.
 				db.transactionSTD = db.transaction;		// save standard transaction() function.
 				db.transaction = function(func, onTxError, onTxSuccess){
 					var funcORG = func;		// save user function.
@@ -120,24 +122,73 @@ DBConnectorSQLiteBase.prototype.extractTableName = function(sql) {
 	return s;
 };
 
+DBConnectorSQLiteBase.prototype.getTablesInfoFromDatabase = function(){
+	var self = this;
+	return new Promise(function(resolve,reject){
+		var db = self.openDB();
+		db.transactionSTD(function(tx){
+			var sql = "SELECT sql FROM sqlite_master WHERE type='table'"
+			tx.executeSql(sql, [],
+				function(tx, data){
+					var sqlCreates = [];
+					for ( var r = 0; r < data.rows.length; r++ )
+						sqlCreates.push(data.rows.item(r).sql);				// sql is provided by SQLite as: CREATE TABLE...
+					return resolve(sqlCreates);
+				},
+				function(tx, err){
+					reject(err);
+				}
+			);
+		});
+	})
+	.catch(err=>console.log(err));	
+};
+
+DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(){
+	var self = this;
+	return this.getTablesInfoFromDatabase()
+	.then(sqlCreates=>{
+		for ( var s in sqlCreates ){
+			var parsed, tableName, keyName;
+			try{
+				parsed = sqliteParser(sqlCreates[s]);
+			}
+			catch(e){
+				console.log("Unable to parse query to retrieve " + tableName + " table PK: " + sql);
+			}
+			// parsed contains a list of columns and constraints
+			if ( parsed && parsed.statement && parsed.statement.length && parsed.statement[0].definition && parsed.statement[0].name && parsed.statement[0].name.name){
+				var colsAndConstraints = parsed.statement[0].definition;
+				for ( var i in colsAndConstraints ){
+					if ( colsAndConstraints[i].type == "definition" && (colsAndConstraints[i].variant == "constraint") && colsAndConstraints[i].definition && colsAndConstraints[i].definition.length && (colsAndConstraints[i].definition[0].type == "constraint") && (colsAndConstraints[i].definition[0].variant == "primary key")){
+						if ( colsAndConstraints[i].columns && colsAndConstraints[i].columns.length && colsAndConstraints[i].columns[0].variant == "column" )
+							self.keyNames[parsed.statement[0].name.name] = colsAndConstraints[i].columns[0].name;
+					}
+				}
+				
+			}
+		}
+	})
+	.catch(err=>console.log(err));	
+};
+
 DBConnectorSQLiteBase.prototype.getKeyName = function(tableName){
-	if ( !this.syncClient.schema )
-		this.syncClient.loadSchema();
+	// if ( !this.syncClient.schema )
+		// this.syncClient.loadSchema();
 	var schema = this.syncClient.schema;
 	var result = null;
 	if ( schema ){
 		for ( var t in schema.Tables ){
 			if ( schema.Tables[t].Name == tableName ){
-				result = schema.Tables[t].PK;
-				break;
+				return Promise.resolve(schema.Tables[t].PK);
 			}
 		}
 	}
-	if ( result )
-		return Promise.resolve(result);
-	if ( this.getKeyNameFromDatabase )
-		return this.getKeyNameFromDatabase(tableName)	// search PK from database
-	else
+	if ( this.keyNames[tableName] )
+		return Promise.resolve(this.keyNames[tableName]);
+	if ( this.getKeyNamesFromDatabase )
+		this.getKeyNamesFromDatabase(tableName)	// search PK from database
+	// else
 		return Promise.resolve(null);
 };
 
@@ -170,37 +221,54 @@ DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 	.catch(err=>{console.log(err);});
 };
 
-// Extract the type of operation (INSERT/UPDATE/DELETE) and the destination table. Also return table's PK column.
+// Extract the type of operation (INSERT/UPDATE/DELETE) and the destination table using the sqliteParse library. Also return table's PK column.
 DBConnectorSQLiteBase.prototype.parseSql = function(sql){
-	var result = {};
-	var i = -1;
-	var ops = ["INSERT INTO", "INSERT OR REPLACE INTO", "UPDATE", "DELETE FROM"];
-	for ( var op in ops )
-	{
-		var ope = ops[op];
-		if ( sql.trim().toUpperCase().indexOf(ope) == 0 )
-		{
-			result.ope = ope;
-			i = sql.toUpperCase().indexOf(ope) + ope.length;
-		}
-	}
-	if ( i == -1 )
+	if ( (sql.toUpperCase().indexOf("INSERT ") == -1) && (sql.toUpperCase().indexOf("UPDATE ") == -1) && (sql.toUpperCase().indexOf("DELETE ") == -1) )
 		return Promise.resolve(null);
-	result.table = this.extractTableName(sql.substr(i));
+	var parsed;
+	try{
+		parsed = sqliteParser(sql);
+	}
+	catch(e){
+		console.log("Unable to parse query for changes markup: " + sql);
+	}
+	var result = {};
+	if ( parsed && parsed.statement && parsed.statement.length ){
+		result.ope = parsed.statement[0].variant.toUpperCase();
+		if (result.ope == "INSERT")
+			result.table = parsed.statement[0].into.name;
+		else if ( result.ope == "UPDATE" )
+			result.table = parsed.statement[0].into.name;
+		else if ( result.ope == "DELETE" )
+			result.table = parsed.statement[0].from.name;
+		else
+			return Promise.resolve(null);
+	}
+	else
+		return Promise.resolve(null);
+	
 	return this.getKeyName(result.table)
-	.then(res=>{
-		result.pkCol = res;
-		return result;
-	});
+	.then(res=>{result.pkCol = res; return result;});
 };
 
-DBConnectorSQLiteBase.prototype.convertSqlToSelect = function(sql, tableName){
-	// var s = "SELECT DISTINCT * FROM `" + tableName + "`";
-	var s = "SELECT * FROM `" + tableName + "`";
-	var posW = sql.toUpperCase().indexOf("WHERE");
-	if ( posW > 0 )
-		s += " " + sql.substr(posW);
-	return s;
+// Convert UPDATE or DELETE query to SELECT *
+// TODO: use sqliteParser to securely detect WHERE clause (instead of simple string search for "where" occurence)
+DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args){
+	var result = {args:[]};
+	var sqlBeforeWhere = sql, sqlWhere = "";
+	var wherePos = sql.toLowerCase().indexOf(" where ");
+	if ( wherePos > 0 ){
+		var sqlBeforeWhere = sql.substring(0, wherePos);
+		sqlWhere = sql.substring(wherePos, sql.length);
+		if ( args && args.length ){
+			// Keep only WHERE... clause and possibly associated args (ignore previous args and SET col=val, col=val... clause of UPDATE query)
+			// We assume that all args are introduced by SQL code "=?" with possible space between equal sign and question mark
+			var argsBeforeWhere = sqlBeforeWhere.match(/=[ ]*\?/g);
+			result.args = args.splice(0, argsBeforeWhere);
+		}
+	}
+	result.sql	= "SELECT * FROM `" + tableName + "`" + sqlWhere;
+	return result;
 }
 
 DBConnectorSQLiteBase.prototype.getDBVersion = function(){
@@ -305,8 +373,12 @@ DBConnectorSQLiteBase.prototype.getMany = function(tableName, arrKeys){
 	if ( !arrKeys || !arrKeys.length )
 		return Promise.resolve([]);
 	var self = this, keyName, syncCols;
-	return 	this.getKeyName(tableName, true)
-	.then(res=>{keyName = res; return self.getSyncColumns(tableName);})
+	var keyName;
+	return this.getKeyName(tableName)
+	.then(res=>{
+		keyName = res;
+		return this.getSyncColumns(tableName);
+	})
 	.then(res=>{
 		syncCols = res.join(",");
 		if ( syncCols == "" )
@@ -397,7 +469,6 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 DBConnectorSQLiteBase.prototype.handleDeletes = function(tableName, deletes, keyName){
 	var self = this;
 	return new Promise(function(resolve,reject){
-		// var db = DBConnectorSQLiteBase.plugin.openDatabase(self.dbName, self.getDBVersion(), "", DEFAULT_DB_SIZE);
 		var db = self.openDB();
 		db.transactionSTD(function(tx){
 			var sql = "DELETE FROM `" + tableName + "` WHERE " + keyName + " IN (" + deletes.map(d=>"?").join(",") + ")";
@@ -421,4 +492,5 @@ function DBConnectorSQLiteBase(dbName, syncClient)
 {
 	DBConnector.call(this, dbName, syncClient);
 	this.name = "SQLiteBase";
+	this.keyNames = {};		// will store PKs retrieved from SQLite/WebSQL database, if not provided by server's schema
 }
