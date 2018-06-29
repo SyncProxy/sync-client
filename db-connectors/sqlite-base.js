@@ -205,8 +205,6 @@ DBConnectorSQLiteBase.prototype.getColumnsInfoFromDatabase = function(tableName)
 };
 
 DBConnectorSQLiteBase.prototype.getKeyName = function(tableName){
-	// if ( !this.syncClient.schema )
-		// this.syncClient.loadSchema();
 	var schema = this.syncClient.schema;
 	var result = null;
 	if ( schema ){
@@ -218,10 +216,7 @@ DBConnectorSQLiteBase.prototype.getKeyName = function(tableName){
 	}
 	if ( this.keyNames[tableName] )
 		return Promise.resolve(this.keyNames[tableName]);
-	// if ( this.getKeyNamesFromDatabase )
-		// this.getKeyNamesFromDatabase(tableName)	// search PK from database
-	// else
-		return Promise.resolve(null);
+	return Promise.resolve(null);
 };
 
 // Get columns to sync from the schema.
@@ -471,13 +466,9 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 								dataToUpdate.push(currRow[cols[c]]);
 							dataToInsert.push(currRow[cols[c]]);
 						}
-						// myalert(sqlUpdate);
-						// myalert(dataToUpdate.concat([currRow[keyName]]).join(","));
 						tx.executeSql(sqlUpdate, dataToUpdate.concat([currRow[keyName]]), function(tx, result){
 							// If current row was not updated, insert it
 							if ( !result.rowsAffected ){
-						// myalert(sqlInsert);
-						// myalert(dataToInsert.join(","));
 								tx.executeSql(sqlInsert, dataToInsert, function(rx,result){
 									numInserts += result.rowsAffected;
 								},

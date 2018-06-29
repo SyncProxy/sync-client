@@ -75,44 +75,6 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 	return db;
 };
 
-/*
-DBConnectorSQLite.prototype.getTableInfoFromDatabase = function(tableName){
-	var self = this;
-	return new Promise(function(resolve,reject){
-		var db = self.openDB();
-		db.transactionSTD(function(tx){
-			var sql = "PRAGMA table_info([" + tableName + "]);";
-			tx.executeSql(sql, [],
-				function(tx, data){
-					var cols = [];
-					for ( var r = 0; r < data.rows.length; r++ )
-						cols.push(data.rows.item(r));
-					return resolve(cols);
-				},
-				function(tx, err){
-					reject(err);
-				}
-			);
-		});
-	})
-	.catch(err=>console.log(err));	
-};
-
-DBConnectorSQLite.prototype.getKeyNameFromDatabase = function(tableName){
-	var self = this;
-	return this.getTableInfoFromDatabase(tableName)
-	.then(res=>{
-		for ( var r = 0; r < res.length; r++ ){
-			if ( res[r].pk == 1){
-				return Promise.resolve(res[r].name);
-			}
-		}
-		return Promise.resolve(null);
-	})
-	.catch(err=>console.log(err));	
-};
-*/
-
 /////////////////
 // Constructor //
 /////////////////

@@ -244,18 +244,6 @@ SyncClient.prototype.loadSchema = function(){
 		this.schema = JSON.parse(s);
 	return this.schema;
 };
-/*
-SyncClient.prototype.getTableSchema = function(tableName){
-	if ( !this.schema )
-		this.loadSchema();
-	for ( var t in schema.Tables ){
-		var table = schema.Tables[t];
-		if ( table.Name == tableName )
-			return table;
-	}
-	return null;
-};
-*/
 
 // Compare schema version and current DB version to decide wether to upgrade database.
 SyncClient.prototype.upgradeNeeded = function(schema){
@@ -1440,7 +1428,6 @@ SyncClient.prototype.serverSync = function(reactive, tables){
 	if ( this.serverSyncsPending )
 		return Promise.resolve();
 	this.lastSyncFailed = false;
-	//if ( this.mustUpgrade || (this.serverSyncsPending && (this.syncType == 2)))		// database must upgrade or a reactive sync is already pending
 	if ( this.mustUpgrade || this.serverSyncsPending || this.clientSyncsPending )		// database must upgrade or a server sync is already pending
 		return Promise.resolve();
 	var self = this;
@@ -1461,9 +1448,7 @@ SyncClient.prototype.onClientChanges = function(tableName){
 		// If table is configured for reactive sync in user's sync profile, send changes in realtime. Otherwise, they will be sent during next full sync.
 		var reactiveTables = this.getReactiveSyncTables();
 		var self = this;
-		//if ( !this.clientSyncsPending && (reactiveTables.indexOf(tableName) > -1) )
 		if ( reactiveTables.indexOf(tableName) > -1 )
-			// this.clientSync(true);
 			window.setTimeout(function(){self.clientSync(true);}, 0);
 	}
 };
