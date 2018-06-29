@@ -781,7 +781,6 @@ SyncClient.prototype.getCredentials = function(){
 		.then(()=>includeFile("libs/tingle.css", "link"))
 		.then(()=>includeFile("libs/tingle-custom.css", "link"))
 		.then(()=>{return self.promptUserLogin();})
-		//.then(res=>{if (!res.login ||!res.password) return null; self.login = res.login; self.password = res.password; return res;})
 		.then(res=>{if (!res.login) return null; self.login = res.login; self.password = res.password; return res;})
 };
 

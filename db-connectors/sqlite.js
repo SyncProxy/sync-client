@@ -19,13 +19,13 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 				if ( sqlObject && sqlObject.pkCol && (sqlObject.ope == "INSERT") ){
 					var onSuccessORG = onSuccess;
 					onSuccess = function(data){
-						// If datas have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
+						// If data have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
 						var rowids = [];
 						for ( var r = 0; r < data.rowsAffected; r++ ){
 							var rowid = data.insertId - r;
 							rowids.push(rowid);
 						}
-						// Retrieve PKs which correspond to newly inserted rowids.
+						// Retrieve keys of newly inserted rowids.
 						var sqlSelect = "SELECT " + sqlObject.pkCol + " FROM " + sqlObject.table + " WHERE rowid IN (" + rowids.join(",") + ")";
 						db.executeSqlSTD(sqlSelect, [], function(data){
 							// Save PKs of inserted records into localStorage.

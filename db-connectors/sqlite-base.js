@@ -20,13 +20,13 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 			if ( sqlObject && sqlObject.pkCol && (sqlObject.ope == "INSERT") ){
 				var onSuccessORG = onSuccess;
 				onSuccess = function(tx, data){
-					// If datas have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
+					// If data have been inserted, first retrieve their rowids, then retrieve and save their PKs into localStorage.
 					var rowids = [];
 					for ( var r = 0; r < data.rowsAffected; r++ ){
 						var rowid = data.insertId - r;
 						rowids.push(rowid);
 					}
-					// Retrieve PKs which correspond to newly inserted rowids.
+					// Retrieve keys of newly inserted rowids.
 					var sqlSelect = "SELECT " + sqlObject.pkCol + " FROM " + sqlObject.table + " WHERE rowid IN (" + rowids.join(",") + ")";
 					db.transactionSTD(function(tx) {
 						tx.executeSql(sqlSelect, [], function (tx, data) {
@@ -122,12 +122,15 @@ DBConnectorSQLiteBase.prototype.extractTableName = function(sql) {
 	return s;
 };
 
-DBConnectorSQLiteBase.prototype.getTablesInfoFromDatabase = function(){
+// Get table info directly from local db strucure (if no tableName is given, get all tables)
+DBConnectorSQLiteBase.prototype.getTableInfoFromDatabase = function(tableName){
 	var self = this;
 	return new Promise(function(resolve,reject){
 		var db = self.openDB();
 		db.transactionSTD(function(tx){
-			var sql = "SELECT sql FROM sqlite_master WHERE type='table'"
+			var sql = "SELECT sql FROM sqlite_master WHERE type='table'";
+			if ( tableName )
+				sql += " AND name LIKE '" + tableName + "'";
 			tx.executeSql(sql, [],
 				function(tx, data){
 					var sqlCreates = [];
@@ -144,9 +147,10 @@ DBConnectorSQLiteBase.prototype.getTablesInfoFromDatabase = function(){
 	.catch(err=>console.log(err));	
 };
 
-DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(){
+// Retrieve key column directly from local db strucure (if no tableName is given, get all tables)
+DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(tableName){
 	var self = this;
-	return this.getTablesInfoFromDatabase()
+	return this.getTableInfoFromDatabase(tableName)
 	.then(sqlCreates=>{
 		for ( var s in sqlCreates ){
 			var parsed, tableName, keyName;
@@ -154,7 +158,7 @@ DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(){
 				parsed = sqliteParser(sqlCreates[s]);
 			}
 			catch(e){
-				console.log("Unable to parse query to retrieve " + tableName + " table PK: " + sql);
+				console.log("Unable to parse query to retrieve " + tableName + " table PK: " + sqlCreates[s]);
 			}
 			// parsed contains a list of columns and constraints
 			if ( parsed && parsed.statement && parsed.statement.length && parsed.statement[0].definition && parsed.statement[0].name && parsed.statement[0].name.name){
@@ -165,9 +169,37 @@ DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(){
 							self.keyNames[parsed.statement[0].name.name] = colsAndConstraints[i].columns[0].name;
 					}
 				}
-				
 			}
 		}
+	})
+	.catch(err=>console.log(err));	
+};
+
+DBConnectorSQLiteBase.prototype.getColumnsInfoFromDatabase = function(tableName){
+	var self = this;
+	return this.getTableInfoFromDatabase(tableName)
+	.then(res=>{
+		if ( !res || (res.length != 1) )
+			return Promise.reject("Could not retrieve columns info for table " + tableName);
+		var sql = res[0];
+		var parsed;
+		try{
+			parsed = sqliteParser(sql);
+		}
+		catch(e){
+			console.log("Unable to parse query to retrieve " + tableName + " table columns: " + sql);
+		}
+		// parsed contains a list of columns and constraints
+		var cols = [];
+		if ( parsed && parsed.statement && parsed.statement.length && parsed.statement[0].definition ){
+			var colsAndConstraints = parsed.statement[0].definition;
+			for ( var i in colsAndConstraints ){
+				if ( colsAndConstraints[i].variant == "column" ){
+					cols.push({name:colsAndConstraints[i].name});		// colsAndConstraints[i].datatype could be added if data type were required
+				}
+			}
+		}
+		return cols;
 	})
 	.catch(err=>console.log(err));	
 };
@@ -186,12 +218,13 @@ DBConnectorSQLiteBase.prototype.getKeyName = function(tableName){
 	}
 	if ( this.keyNames[tableName] )
 		return Promise.resolve(this.keyNames[tableName]);
-	if ( this.getKeyNamesFromDatabase )
-		this.getKeyNamesFromDatabase(tableName)	// search PK from database
+	// if ( this.getKeyNamesFromDatabase )
+		// this.getKeyNamesFromDatabase(tableName)	// search PK from database
 	// else
 		return Promise.resolve(null);
 };
 
+// Get columns to sync from the schema.
 DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 	var self = this;
 	return new Promise(function(resolve,reject){
@@ -203,9 +236,10 @@ DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 				if ( schema.Tables[t].Name == tableName ){
 					var syncCols = [];
 					var cols = schema.Tables[t].Columns;
+					// Get names of columns of table's schema (if excludeKey is true, exclude key column).
 					for ( var c in cols ){
 						if ( cols[c].Sync )
-							syncCols.push(cols[c].Name);
+							syncCols.push(cols[c]);
 					}
 					return resolve(syncCols);
 				}
@@ -214,9 +248,13 @@ DBConnectorSQLiteBase.prototype.getSyncColumns = function(tableName){
 		return resolve([]);
 	})
 	.then(res=>{
-		if ( res.length || !self.getTableInfoFromDatabase )
+		// If table's schema is not set or contains only the key column (usually NoSQL data), try to retrieve columns from local database.
+		if ( (res.length > 1) || !self.getColumnsInfoFromDatabase )
 			return res;
-		return self.getTableInfoFromDatabase(tableName).map(c=>c.name);		// get columns definition from database and assume they are all synched
+		return self.getColumnsInfoFromDatabase(tableName);		// get columns definition from database and assume they are all synched
+	})
+	.then(res=>{
+		return res.map(c=>c.name || c.Name);
 	})
 	.catch(err=>{console.log(err);});
 };
@@ -433,9 +471,13 @@ DBConnectorSQLiteBase.prototype.handleUpserts = function(tableName, upserts, key
 								dataToUpdate.push(currRow[cols[c]]);
 							dataToInsert.push(currRow[cols[c]]);
 						}
+						// myalert(sqlUpdate);
+						// myalert(dataToUpdate.concat([currRow[keyName]]).join(","));
 						tx.executeSql(sqlUpdate, dataToUpdate.concat([currRow[keyName]]), function(tx, result){
 							// If current row was not updated, insert it
 							if ( !result.rowsAffected ){
+						// myalert(sqlInsert);
+						// myalert(dataToInsert.join(","));
 								tx.executeSql(sqlInsert, dataToInsert, function(rx,result){
 									numInserts += result.rowsAffected;
 								},
@@ -493,4 +535,13 @@ function DBConnectorSQLiteBase(dbName, syncClient)
 	DBConnector.call(this, dbName, syncClient);
 	this.name = "SQLiteBase";
 	this.keyNames = {};		// will store PKs retrieved from SQLite/WebSQL database, if not provided by server's schema
+	
+	// If no schema is set, try to retrieve key columns from local database (use a timeout because DB is likely to be managed by app itself)
+	var self = this;
+	if ( syncClient ){
+		window.setTimeout(function(){
+			if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
+				self.getKeyNamesFromDatabase();
+		}, 2000);
+	}
 }

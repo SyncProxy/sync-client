@@ -161,7 +161,7 @@ DBConnector.prototype.getAllUpserts = function(tables){
 	var addTableUpsertPromise = function(promises, tableName){		// declaring a function is necessary to scope tableName within for loop
 		promises.push(
 			self.getUpserts(tableName)
-			.then(res=>{if (res.length) allUpserts[tableName] = res;})
+			.then(res=>{if (res && res.length) allUpserts[tableName] = res;})
 			.catch(err=>{
 				console.log("getAllUpserts: " + err);
 				return Promise.reject(err);
