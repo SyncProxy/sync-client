@@ -41,7 +41,7 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 				if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE")) ){
 					// If datas are to be updated or deleted, previously save their PKs into localStorage.
 					// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
-					var selectQuery = self.convertToSelect(sqlObject.table, sql, args);
+					var selectQuery = self.convertToSelect(sqlObject.table, sql, args, sqlObject.pkCol);
 					db.executeSqlSTD(selectQuery.sql, selectQuery.args,
 						function(data){
 							// Result of the SELECT: save PK's of records being updated or modified.
@@ -61,7 +61,7 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 					);
 				}
 				else
-					return db.executeSqlSTD(sql, args, onSuccess, onError)
+					db.executeSqlSTD(sql, args, onSuccess, onError)
 			});
 		};
 	}

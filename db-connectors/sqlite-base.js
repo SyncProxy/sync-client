@@ -44,7 +44,7 @@ DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 			if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE")) ){
 				// If datas are to be updated or deleted, previously save their PKs into localStorage.
 				// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
-				var selectQuery = self.convertToSelect(sqlObject.table, sql, args);
+				var selectQuery = self.convertToSelect(sqlObject.table, sql, args, sqlObject.pkCol);
 				db.transactionSTD(function(tx) {
 					tx.executeSql(selectQuery.sql, selectQuery.args, function (tx, data){		// first, execute the SELECT
 						// Result of the SELECT: save PK's of records being updated or modified.
@@ -286,9 +286,11 @@ DBConnectorSQLiteBase.prototype.parseSql = function(sql){
 
 // Convert UPDATE or DELETE query to SELECT *
 // TODO: use sqliteParser to securely detect WHERE clause (instead of simple string search for "where" occurence)
-DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args){
+DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args, pkCol){
 	var result = {args:[]};
-	var sqlBeforeWhere = sql, sqlWhere = "";
+	if ( args && args.length )
+		result.args = args.slice(0);
+	var sqlWhere = "";
 	var wherePos = sql.toLowerCase().indexOf(" where ");
 	if ( wherePos > 0 ){
 		var sqlBeforeWhere = sql.substring(0, wherePos);
@@ -297,10 +299,10 @@ DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args)
 			// Keep only WHERE... clause and possibly associated args (ignore previous args and SET col=val, col=val... clause of UPDATE query)
 			// We assume that all args are introduced by SQL code "=?" with possible space between equal sign and question mark
 			var argsBeforeWhere = sqlBeforeWhere.match(/=[ ]*\?/g);
-			result.args = args.splice(0, argsBeforeWhere);
+			result.args.splice(0, argsBeforeWhere.length);
 		}
 	}
-	result.sql	= "SELECT * FROM `" + tableName + "`" + sqlWhere;
+	result.sql	= "SELECT `" + pkCol + "` FROM `" + tableName + "`" + sqlWhere;
 	return result;
 }
 

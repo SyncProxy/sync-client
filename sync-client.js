@@ -238,7 +238,6 @@ SyncClient.prototype.saveSchema = function(schema){
 };
 
 SyncClient.prototype.loadSchema = function(){
-	console.log("loadSchema");
 	var s = this.getItem(this.proxyId + ".schema");
 	if ( s )
 		this.schema = JSON.parse(s);
