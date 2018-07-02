@@ -299,7 +299,8 @@ DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args,
 			// Keep only WHERE... clause and possibly associated args (ignore previous args and SET col=val, col=val... clause of UPDATE query)
 			// We assume that all args are introduced by SQL code "=?" with possible space between equal sign and question mark
 			var argsBeforeWhere = sqlBeforeWhere.match(/=[ ]*\?/g);
-			result.args.splice(0, argsBeforeWhere.length);
+			if ( argsBeforeWhere )
+				result.args.splice(0, argsBeforeWhere.length);
 		}
 	}
 	result.sql	= "SELECT `" + pkCol + "` FROM `" + tableName + "`" + sqlWhere;
