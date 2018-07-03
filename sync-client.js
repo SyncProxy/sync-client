@@ -155,6 +155,16 @@ function SyncClient(params){
 	})
 	.then(()=>{
 		self.loadSchema();
+
+		// If db schema is unknown, retrieve tables key names from local database
+		if ( !self.schema || !Object.keys(self.schema).length ){
+			if ( self.connector.getKeyNamesFromDatabase )
+				window.setTimeout(function(){
+					return self.connector.getKeyNamesFromDatabase();
+				}, 2000);
+		}
+	})
+	.then(()=>{
 		var upgradePromise;
 		if ( self.upgradeNeeded(self.schema) ){
 			upgradePromise = self.upgradeDatabase({version:self.schema.version, Tables:self.schema.Tables});

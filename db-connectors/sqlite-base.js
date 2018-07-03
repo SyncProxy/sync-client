@@ -164,10 +164,14 @@ DBConnectorSQLiteBase.prototype.getKeyNamesFromDatabase = function(tableName){
 			if ( parsed && parsed.statement && parsed.statement.length && parsed.statement[0].definition && parsed.statement[0].name && parsed.statement[0].name.name){
 				var colsAndConstraints = parsed.statement[0].definition;
 				for ( var i in colsAndConstraints ){
+					// Contraint object of type PK with a list of (one or more) columns
 					if ( colsAndConstraints[i].type == "definition" && (colsAndConstraints[i].variant == "constraint") && colsAndConstraints[i].definition && colsAndConstraints[i].definition.length && (colsAndConstraints[i].definition[0].type == "constraint") && (colsAndConstraints[i].definition[0].variant == "primary key")){
 						if ( colsAndConstraints[i].columns && colsAndConstraints[i].columns.length && colsAndConstraints[i].columns[0].variant == "column" )
 							self.keyNames[parsed.statement[0].name.name] = colsAndConstraints[i].columns[0].name;
 					}
+					// Column object with a PK constraint
+					if ( colsAndConstraints[i].type == "definition" && (colsAndConstraints[i].variant == "column") && colsAndConstraints[i].definition && colsAndConstraints[i].definition.length && (colsAndConstraints[i].definition[0].type == "constraint") && (colsAndConstraints[i].definition[0].variant == "primary key"))
+						self.keyNames[parsed.statement[0].name.name] = colsAndConstraints[i].name;
 				}
 			}
 		}
@@ -531,11 +535,11 @@ function DBConnectorSQLiteBase(dbName, syncClient)
 	this.keyNames = {};		// will store PKs retrieved from SQLite/WebSQL database, if not provided by server's schema
 	
 	// If no schema is set, try to retrieve key columns from local database (use a timeout because DB is likely to be managed by app itself)
-	var self = this;
-	if ( syncClient ){
-		window.setTimeout(function(){
-			if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
-				self.getKeyNamesFromDatabase();
-		}, 2000);
-	}
+	// var self = this;
+	// if ( syncClient ){
+		// window.setTimeout(function(){
+			// if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
+				// self.getKeyNamesFromDatabase();
+		// }, 2000);
+	// }
 }
