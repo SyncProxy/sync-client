@@ -289,8 +289,7 @@ DBConnectorSQLiteBase.prototype.parseSql = function(sql){
 };
 
 // Convert UPDATE or DELETE query to SELECT *
-// TODO: use sqliteParser to securely detect WHERE clause (instead of simple string search for "where" occurence)
-DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args, pkCol){
+/*DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args, pkCol){
 	var result = {args:[]};
 	if ( args && args.length )
 		result.args = args.slice(0);
@@ -305,6 +304,42 @@ DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args,
 			var argsBeforeWhere = sqlBeforeWhere.match(/=[ ]*\?/g);
 			if ( argsBeforeWhere )
 				result.args.splice(0, argsBeforeWhere.length);
+		}
+	}
+	result.sql	= "SELECT `" + pkCol + "` FROM `" + tableName + "`" + sqlWhere;
+	return result;
+}*/
+
+// Convert UPDATE or DELETE query to SELECT *
+// TODO: fully parse the query to fully secure the WHERE clause detection
+DBConnectorSQLiteBase.prototype.convertToSelect = function(tableName, sql, args, pkCol){
+	var result = {args:[]};
+	if ( args && args.length )
+		result.args = args.slice(0);
+	var sqlWhere = "";
+	var sqlTmp = sql;
+	var wherePos = -1;
+	
+	// Parse sql at first level only to check wether it contains a WHERE clause or not
+	var parsed = sqliteParser(sql);
+	if ( parsed && parsed.statement && parsed.statement.length && parsed.statement[0].where ){
+		// Replace all delimited strings containing " WHERE " by dots
+		var wStrings = sql.match(/'[^']* where [^']*'/gi) || [];
+		for ( var s in wStrings )
+			sqlTmp = sqlTmp.replace(wStrings[s], Array(wStrings[s].length + 1).join("."));
+		// Find position of WHERE clause
+		wherePos = sqlTmp.toUpperCase().indexOf(" WHERE ");
+	}
+	if ( wherePos > 0 ){
+		var sqlBeforeWhere = sql.substring(0, wherePos);
+		sqlWhere = sql.substring(wherePos, sql.length);
+		if ( args && args.length ){
+			// Keep only WHERE... clause and possibly associated args (ignore previous args and SET col=val, col=val... clause of UPDATE query)
+			// We assume that all args are introduced by a question mark "?" not included within a delimited string.
+			// var argsBeforeWhere = sqlBeforeWhere.match(/=[ ]*\?/g);
+			var argsWithinQuotesBeforeWhere = sqlBeforeWhere.match(/'[^']*\?[^']*'/g) || [];
+			var numArgsBeforeWhere = (sqlBeforeWhere.match(/\?/g) || []).length - argsWithinQuotesBeforeWhere.length;
+			result.args.splice(0, numArgsBeforeWhere);
 		}
 	}
 	result.sql	= "SELECT `" + pkCol + "` FROM `" + tableName + "`" + sqlWhere;
