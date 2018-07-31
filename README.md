@@ -84,6 +84,10 @@ default: ""
 Message that will popup in the app before the first synchronization.  
 default: "To begin, please press Sync button"
 
+**utcDates**
+If true (default), all datetimes will be stored as ISO-8601 strings, otherwise as "YYYY-MM-DD HH:MI:SS" (without timezone information).
+default: "true"
+
 **onSyncEnd**  
 Handler function called each time synchronization ends
 
