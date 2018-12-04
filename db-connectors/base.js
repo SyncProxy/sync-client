@@ -201,7 +201,24 @@ DBConnector.prototype.setDBVersion = function(version){
 };
 
 DBConnector.prototype.upgradeDatabase = function(newSchema){
+	return Promise.resolve(false);
 };
+
+DBConnector.prototype.getKeyName = function(tableName){
+	var schema = this.syncClient.schema;
+	var result = null;
+	if ( schema ){
+		for ( var t in schema.Tables ){
+			if ( schema.Tables[t].Name == tableName ){
+				return Promise.resolve(schema.Tables[t].PK);
+			}
+		}
+	}
+	if ( this.keyNames && this.keyNames[tableName] )
+		return Promise.resolve(this.keyNames[tableName]);
+	return Promise.resolve(null);
+};
+
 
 function DBConnector(dbName, syncClient)
 {

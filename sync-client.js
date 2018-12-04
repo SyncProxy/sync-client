@@ -111,8 +111,7 @@ SyncClient.prototype.defaultParams = {
 	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
 	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
 	"welcomeMessage": "To begin, please press Sync button",
-	"utcDates": true,						// If true (default), will store all datetimes as ISO-strings, otherwise as "YYYY-MM-DD HH:MI:SS" without timezone information
-	"onSyncEnd": "console.log('onSyncEnd')"	// Custom function called after sync end
+	"onSyncEnd": "console.log('onSyncEnd')"				// Custom function called after sync end
 };
 
 function SyncClient(params){
@@ -156,16 +155,6 @@ function SyncClient(params){
 	})
 	.then(()=>{
 		self.loadSchema();
-
-		// If db schema is unknown, retrieve tables key names from local database
-		if ( !self.schema || !Object.keys(self.schema).length ){
-			if ( self.connector.getKeyNamesFromDatabase )
-				window.setTimeout(function(){
-					return self.connector.getKeyNamesFromDatabase();
-				}, 2000);
-		}
-	})
-	.then(()=>{
 		var upgradePromise;
 		if ( self.upgradeNeeded(self.schema) ){
 			upgradePromise = self.upgradeDatabase({version:self.schema.version, Tables:self.schema.Tables});
@@ -220,7 +209,6 @@ SyncClient.prototype.resetIndexedDBOpen = function(){
 	// Reset original database open function used by app, if it was patched (to prevent database version collision with app), restore original open
 	var self = this;
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
-		const idb = indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
 		if ( !idb )
 			return;
 		if (idb && idb.indexedDBOpenDisabled){
@@ -1184,33 +1172,6 @@ SyncClient.prototype.handleServerChanges = function(changes){
 	.catch(err=>{console.log("Error during server data reception: " + err); return Promise.reject(err);});
 };
 
-// Apply conversions on server data, if necessary.
-SyncClient.prototype.convertUpserts = function(upserts){
-	var utcDates = (this.utcDates.toString() != "false");
-	if ( utcDates )
-		return upserts;		// nothing to convert
-	for ( var r in upserts ){
-		var row = upserts[r];
-		var colNames = Object.keys(row);
-		for ( var c in colNames ){
-			var m;
-			var colName = colNames[c];
-			var val = row[colName];
-			if ( val ){
-				var sVal = val.toString();
-				if ( !utcDates && (sVal.length >= 19) && (m = sVal.substr(0,19).match(/(\d{4})?(\d{2})?(\d{2})?(\d{2})\:(\d{2})\:(\d{2})/g)) ){
-					// sVal is a date (UTC or YYYY*MM*DD HH:MI:SS). Since dates must be stored as-is (non UTC), remove any timezone information from date string
-					sVal = sVal.substr(0, 19).replace("T", " ");
-					var d = new Date(sVal);
-					if (d != "Invalid Date")
-						upserts[r][colName] = [d.getFullYear(), pad(d.getMonth()+1,2), pad(d.getDate(),2)].join('/') + ' ' + [pad(d.getHours(),2), pad(d.getMinutes(),2), pad(d.getSeconds(),2)].join(':');
-				}
-			}
-		}
-	}
-	return upserts;
-};
-
 // TODO: maybe performances might be improved using parallel upserts into different tables ?
 SyncClient.prototype.handleUpserts = function(upserts, keyNames){
 	if ( !upserts || !Object.keys(upserts).length )
@@ -1223,8 +1184,7 @@ SyncClient.prototype.handleUpserts = function(upserts, keyNames){
 	var numT = tables.length;
 	var t = 0;
 	var f = function(t){
-		// return self.connector.handleUpserts(tables[t], upserts[tables[t]], keyNames[tables[t]])
-		return self.connector.handleUpserts(tables[t], self.convertUpserts(upserts[tables[t]]), keyNames[tables[t]])
+		return self.connector.handleUpserts(tables[t], upserts[tables[t]], keyNames[tables[t]])
 		.then(()=>{
 			if ( t < numT - 1 ){
 				t++;
