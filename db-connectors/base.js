@@ -205,8 +205,9 @@ DBConnector.prototype.upgradeDatabase = function(newSchema){
 };
 
 DBConnector.prototype.getKeyName = function(tableName){
+	if ( !this.syncClient.schema )
+		this.syncClient.loadSchema();
 	var schema = this.syncClient.schema;
-	var result = null;
 	if ( schema ){
 		for ( var t in schema.Tables ){
 			if ( schema.Tables[t].Name == tableName ){
