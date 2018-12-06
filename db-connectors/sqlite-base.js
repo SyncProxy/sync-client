@@ -316,7 +316,10 @@ DBConnectorSQLiteBase.prototype.getDBVersion = function(){
 	var v = this.getItem(this.dbName + ".dbVersion");
 	if ( v )
 		return v;
-	return "1.0";
+	if ( this.syncClient.autoUpgradeDB.toString() == "true" )
+		return "0.0";
+	else
+		return "1.0";
 };
 
 //////////////////////
