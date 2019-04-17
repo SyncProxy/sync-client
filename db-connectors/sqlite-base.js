@@ -539,11 +539,11 @@ function DBConnectorSQLiteBase(dbName, syncClient)
 	this.keyNames = {};		// will store PKs retrieved from SQLite/WebSQL database, if not provided by server's schema
 	
 	// If no schema is set, try to retrieve key columns from local database (use a timeout because DB is likely to be managed by app itself)
-	// var self = this;
-	// if ( syncClient ){
-		// window.setTimeout(function(){
-			// if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
-				// self.getKeyNamesFromDatabase();
-		// }, 2000);
-	// }
+	var self = this;
+	if ( syncClient ){
+		window.setTimeout(function(){
+			if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
+				self.getKeyNamesFromDatabase();
+		}, 2000);
+	}
 }

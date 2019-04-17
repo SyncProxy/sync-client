@@ -1454,5 +1454,13 @@ SyncClient.prototype.onClientChanges = function(tableName){
 SyncClient.prototype.scriptParams = SyncClient.getScriptParams();		// read params passed directly within <script> tag.
 
 // Call constructor if told so (by default)
-if ( SyncClient.prototype.scriptParams.autoInit.toString() == "true" )
-	SyncClient.initClient(SyncClient.prototype.scriptParams);
+if ( SyncClient.prototype.scriptParams.autoInit.toString() == "true" ){
+	if ( (typeof device != "undefined") && device && device.cordova ){
+		var self = this;
+		document.addEventListener('deviceready', function() {
+			SyncClient.initClient(SyncClient.prototype.scriptParams);
+		});
+	}
+	else
+		SyncClient.initClient(SyncClient.prototype.scriptParams);
+}
