@@ -10,7 +10,7 @@ DBConnectorSQLiteBase.prototype.openDB = function(){
 // Patch SQLite/WebSQL standard function to handle automatic changes detection.
 DBConnectorSQLiteBase.prototype.patchExecuteSql = function(db, tx){
 	var self = this;
-	if ( typeof db.executeSqlSTD == "undefined" )
+	if ( typeof tx.executeSqlSTD == "undefined" )
 		tx.executeSqlSTD = tx.executeSql;		// save standard executeSql() function.
 	tx.executeSql = function(sql, args, onSuccess, onError){
 		var sqlObject;
@@ -387,7 +387,7 @@ DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
 							tx.executeSql(sqlAddCol, [], null, function(tx,err){
 								console.log("Column " + table.Name + "." + col.Name + " was not added (maybe it already exists ?)");
 								console.dir(err);
-								// reject(err);
+								return false;		// ignore error
 							});
 						}
 					},
@@ -532,11 +532,12 @@ DBConnectorSQLiteBase.prototype.handleDeletes = function(tableName, deletes, key
 /////////////////
 // Constructor //
 /////////////////
-function DBConnectorSQLiteBase(dbName, syncClient)
+function DBConnectorSQLiteBase(dbName, syncClient, whichSqlitePlugin)
 {
 	DBConnector.call(this, dbName, syncClient);
 	this.name = "SQLiteBase";
 	this.keyNames = {};		// will store PKs retrieved from SQLite/WebSQL database, if not provided by server's schema
+	DBConnectorSQLiteBase.plugin = whichSqlitePlugin;
 	
 	// If no schema is set, try to retrieve key columns from local database (use a timeout because DB is likely to be managed by app itself)
 	var self = this;

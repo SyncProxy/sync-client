@@ -80,7 +80,7 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 /////////////////
 function DBConnectorSQLite(dbName, dbVersion)
 {
-	DBConnectorSQLiteBase.call(this, dbName, dbVersion);
+	DBConnectorSQLiteBase.call(this, dbName, dbVersion, window.sqlitePlugin);
 	this.name = "SQLite";
 	this.monkeyPatch();
 }

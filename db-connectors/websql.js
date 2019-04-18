@@ -15,7 +15,7 @@ DBConnectorWebSQL.prototype.patchOpenDatabase = function(db){
 /////////////////
 function DBConnectorWebSQL(dbName, syncClient)
 {
-	DBConnectorSQLiteBase.call(this, dbName, syncClient);
+	DBConnectorSQLiteBase.call(this, dbName, syncClient, window);
 	this.name = "WebSQL";
 	this.monkeyPatch();
 }

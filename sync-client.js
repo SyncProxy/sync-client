@@ -1455,12 +1455,16 @@ SyncClient.prototype.scriptParams = SyncClient.getScriptParams();		// read param
 
 // Call constructor if told so (by default)
 if ( SyncClient.prototype.scriptParams.autoInit.toString() == "true" ){
-	if ( (typeof device != "undefined") && device && device.cordova ){
-		var self = this;
-		document.addEventListener('deviceready', function() {
+	document.addEventListener('DOMContentLoaded', function() {
+		if ( (typeof device != "undefined") && device && device.cordova ){
+			document.addEventListener('deviceready', function() {
+				console.log("Device ready with Cordova");
+				SyncClient.initClient(SyncClient.prototype.scriptParams);
+			});
+		}
+		else{
+			console.log("Device ready (without Cordova)");
 			SyncClient.initClient(SyncClient.prototype.scriptParams);
-		});
-	}
-	else
-		SyncClient.initClient(SyncClient.prototype.scriptParams);
+		}
+	});
 }
