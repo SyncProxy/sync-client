@@ -221,7 +221,6 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 	else if ( idb && idb.indexedDBOpenDisabled){
 		// Backup of IndexedDB.open() function is not needed: reset it
 		idb.open = idb.openSTD;
-		delete idb.openSTD;
 		idb.indexedDBOpenDisabled = false;
 	}
 }
