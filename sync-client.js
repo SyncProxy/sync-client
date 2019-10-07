@@ -423,8 +423,7 @@ SyncClient.prototype._onSyncCancel = function(msg){
 };
 
 SyncClient.prototype._onSyncError = function(err){
-	// Reset keys of changes being sent.
-	this.resetSendings();
+	this.resetSendings();		// reset keys of changes being sent.
 
 	var self = this;
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
@@ -795,6 +794,19 @@ SyncClient.getScriptParams = function() {
 			result[p] = SyncClient.prototype.defaultParams[p];
 	}
 	return result;
+}
+
+// If SyncClient uses IndexedDB connector with autoUpgradeDB option, disable original IndexedDB.open() function temporarilly (without waiting for SyncClient initialization), to prevent main app to block database before it is upgraded.
+var tmpParams = SyncClient.getScriptParams();
+if ( (tmpParams.connectorType == "IndexedDB") || (!tmpParams.connectorType && (SyncClient.prototype.defaultParams.connectorType == "IndexedDB")) ){
+	if ( (tmpParams.autoUpgradeDB == "true") || (!tmpParams.autoUpgradeDB && (SyncClient.prototype.defaultParams.autoUpgradeDB == "true")) ){
+		idb.indexedDBOpenDisabled = true;
+		idb.open = function(dbName){
+			console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
+			idb.restartNeeded = true;
+			return null;
+		};
+	}
 }
 
 SyncClient.prototype.getSyncIcon = function(){
