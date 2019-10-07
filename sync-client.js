@@ -130,7 +130,7 @@ function SyncClient(params){
 	this.resetSyncsPending();
 	var self = this;
 
-	this.disableIndexedDBOpen();
+	// this.disableIndexedDBOpen();
 	
 	includeFile("db-connectors/base.js")
 	.then(()=>{
@@ -189,7 +189,8 @@ function SyncClient(params){
 	window.addEventListener('syncEnd', function(e){if (self.onSyncEnd) eval(self.onSyncEnd);});		// call a custom function if any
 }
 
-/* SyncClient.prototype.disableIndexedDBOpen = function(){
+/*
+SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
 		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
@@ -203,26 +204,30 @@ function SyncClient(params){
 	}
 	else if ( idb )
 		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
-} */
+}
+*/
 
 SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
-	if ( 
-		((this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))) && 
-		((this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true")))
-		){
-		idb.indexedDBOpenDisabled = true;
-		idb.open = function(dbName){
-			console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
-			idb.restartNeeded = true;
-			return null;
-		};
+	var params = SyncClient.prototype.scriptParams;
+	var syncClientCode = this.getItem(params.proxyId + ".syncClientCode");
+	var syncClientCode = this.getItem(params.proxyId + ".syncClientCode");
+	var mustUpgrade = false;
+	if (params.autoUpgradeDB.toString() != "false")
+		mustUpgrade = this.getItem(params.dbName + ".mustUpgrade");
+	
+	if ( (params.connectorType == "IndexedDB") || ((params.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
+		if ( (params.autoUpgradeDB.toString() != "false") && (!syncClientCode || (mustUpgrade.toString() == "true")) ){
+			idb.indexedDBOpenDisabled = true;
+			idb.open = function(dbName){
+				console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
+				idb.restartNeeded = true;
+				return null;
+			};
+		}
 	}
-	else if ( idb && idb.indexedDBOpenDisabled){
-		// Backup of IndexedDB.open() function is not needed: reset it
-		idb.open = idb.openSTD;
-		idb.indexedDBOpenDisabled = false;
-	}
+	else if ( idb )
+		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
 }
 
 SyncClient.prototype.resetIndexedDBOpen = function(){
@@ -815,19 +820,6 @@ SyncClient.getScriptParams = function() {
 			result[p] = SyncClient.prototype.defaultParams[p];
 	}
 	return result;
-}
-
-// If SyncClient uses IndexedDB connector with autoUpgradeDB option, disable original IndexedDB.open() function temporarilly (without waiting for SyncClient initialization), to prevent main app to block database before it is upgraded.
-var tmpParams = SyncClient.getScriptParams();
-if ( (tmpParams.connectorType == "IndexedDB") || (!tmpParams.connectorType && (SyncClient.prototype.defaultParams.connectorType == "IndexedDB")) ){
-	if ( (tmpParams.autoUpgradeDB == "true") || (!tmpParams.autoUpgradeDB && (SyncClient.prototype.defaultParams.autoUpgradeDB == "true")) ){
-		idb.indexedDBOpenDisabled = true;
-		idb.open = function(dbName){
-			console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
-			idb.restartNeeded = true;
-			return null;
-		};
-	}
 }
 
 SyncClient.prototype.getSyncIcon = function(){
@@ -1485,6 +1477,8 @@ SyncClient.prototype.onClientChanges = function(tableName){
 };
 
 SyncClient.prototype.scriptParams = SyncClient.getScriptParams();		// read params passed directly within <script> tag.
+
+SyncClient.prototype.disableIndexedDBOpen();
 
 // Call constructor if told so (by default)
 if ( SyncClient.prototype.scriptParams.autoInit.toString() == "true" ){
