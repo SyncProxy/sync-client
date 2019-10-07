@@ -189,7 +189,7 @@ function SyncClient(params){
 	window.addEventListener('syncEnd', function(e){if (self.onSyncEnd) eval(self.onSyncEnd);});		// call a custom function if any
 }
 
-SyncClient.prototype.disableIndexedDBOpen = function(){
+/* SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
 	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
 		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
@@ -203,6 +203,27 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 	}
 	else if ( idb )
 		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
+} */
+
+SyncClient.prototype.disableIndexedDBOpen = function(){
+	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
+	if ( 
+		((this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))) && 
+		((this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true")))
+		){
+		idb.indexedDBOpenDisabled = true;
+		idb.open = function(dbName){
+			console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
+			idb.restartNeeded = true;
+			return null;
+		};
+	}
+	else if ( idb && idb.indexedDBOpenDisabled){
+		// Backup of IndexedDB.open() function is not needed: reset it
+		id.open = idb.openSTD;
+		delete idb.openSTD;
+		idb.indexedDBOpenDisabled = false;
+	}
 }
 
 SyncClient.prototype.resetIndexedDBOpen = function(){
@@ -423,7 +444,8 @@ SyncClient.prototype._onSyncCancel = function(msg){
 };
 
 SyncClient.prototype._onSyncError = function(err){
-	this.resetSendings();		// reset keys of changes being sent.
+	// Reset keys of changes being sent.
+	this.resetSendings();
 
 	var self = this;
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
