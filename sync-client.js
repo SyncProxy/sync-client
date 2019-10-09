@@ -5,7 +5,7 @@
 // User credentials can be set in 2 ways:
 // 1°) By using default modal dialog prompt
 // 2°) By referencing a custom object/function as an attribute of SyncClient, i.e.: customCredentials="mycredentials()", whose result -typically {login, password}- will be sent as-is to the server.
-
+ 
 myalert = function(msg){
 	alert(msg);
 };

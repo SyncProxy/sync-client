@@ -307,7 +307,8 @@
 
             this.modalCloseBtnIcon = document.createElement('span');
             this.modalCloseBtnIcon.classList.add('tingle-modal__closeIcon');
-            this.modalCloseBtnIcon.innerHTML = '×';
+            // this.modalCloseBtnIcon.innerHTML = '×';
+            this.modalCloseBtnIcon.innerHTML = 'x';
 
             this.modalCloseBtnLabel = document.createElement('span');
             this.modalCloseBtnLabel.classList.add('tingle-modal__closeLabel');
