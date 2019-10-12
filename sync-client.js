@@ -165,7 +165,8 @@ function SyncClient(params){
 		.then(()=>includeFile("sync-client-custom.js"))
 		.then(()=>{ self.loadSyncProfile(); reactive = this.hasReactiveSync();})
 		.then(()=>{
-			if ( (reactive || !this.getTablesToSync() || !this.getTablesToSync().length) && self.isOnline() )
+			var tablesToSync = this.getTablesToSync();
+			if ( (reactive || !tablesToSync || !tablesToSync.length) && self.isOnline() )
 				return self.connect()		// on connected will start a full sync
 				.catch(err=>self._onConnectionError(err));
 		});
@@ -1095,8 +1096,10 @@ SyncClient.prototype.getClientChanges = function(){
 	console.log("Getting changes on client...");
 	var tables = this.getTablesToSync();
 	if ( !tables || (tables.length == 0) ){
-		this.showAlert(Translate("Your sync profile has no table to sync ! Synchronization was aborted."));
-		return Promise.reject("No tables to sync");
+//		this.showAlert(Translate("Your sync profile has no table to sync ! Synchronization was aborted."));
+		// return Promise.reject("No tables to sync");
+		console.log("No tables to sync to the server");
+		return Promise.resolve({Deletes:{}, Upserts:{}});
 	}
 	var changes = {Deletes:null, Upserts:null};
 	var self = this;
@@ -1126,13 +1129,13 @@ SyncClient.prototype.requestSchemaUpgrade = function(){
 };
 
 SyncClient.prototype.requestChanges = function(tables, reactive){
-	// tables array is optionnal. If omitted, all tables changes will be requested.
+	// tables array is optional. If omitted, all tables changes will be requested.
 	var self = this;
 	if ( tables && Array.isArray(tables) && tables.length  )
 		console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
 	else
 		console.log("Requesting changes from server (for all tables)...");
-	var tablesToSync = this.getTablesToSync();
+	var tablesToSync = this.getTablesToSync(reactive, "dbSync");
 	var requestTables;
 	if ( tables && Array.isArray(tables) && tables.length )
 		requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
@@ -1250,7 +1253,9 @@ SyncClient.prototype.endServerSync = function(handledTables){
 	return self.sendRequest({endServerSync:handledTables});
 };
 
-SyncClient.prototype.getTablesToSync = function(onlyReactive) {
+SyncClient.prototype.getTablesToSync = function(onlyReactive, syncDirection) {		// syncDirection: clientSync (client-server) / dbSync (server->client). Default: clientSync
+	if ( !syncDirection )
+		syncDirection = "clientSync";
 	// Get the schema of tables + sync modes
 	var tablesToSync;
 	if ( this.syncProfile && this.syncProfile.length )
@@ -1258,7 +1263,7 @@ SyncClient.prototype.getTablesToSync = function(onlyReactive) {
 		tablesToSync = this.syncProfile.filter(syncRule=>{
 			if ( !Object.values(syncRule) || (Object.values(syncRule).length == 0) )
 				return -1;
-			return (Object.values(syncRule)[0].clientSync && (!onlyReactive || (Object.values(syncRule)[0].clientSync == 2)) )
+			return (Object.values(syncRule)[0][syncDirection] && (!onlyReactive || (Object.values(syncRule)[0][syncDirection] == 2)) )
 		}).map(syncRule=>Object.keys(syncRule)[0]);		// tableName
 	else{
 		// If the user has no sync profile, the property tablesToSync should be set by the app to indicate which tables to sync.
