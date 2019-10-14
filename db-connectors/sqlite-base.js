@@ -344,7 +344,7 @@ DBConnectorSQLiteBase.prototype.getColDef = function(table, colName){
 				defaultVal = " DEFAULT " + defaultVal;
 			else
 				defaultVal = "";
-			return col.Type + primaryKey + size + nullable + defaultVal;
+			return col.Type + size + primaryKey + nullable + defaultVal;
 		}
 	}
 	return null;
