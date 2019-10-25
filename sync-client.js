@@ -5,7 +5,7 @@
 // User credentials can be set in 2 ways:
 // 1°) By using default modal dialog prompt
 // 2°) By referencing a custom object/function as an attribute of SyncClient, i.e.: customCredentials="mycredentials()", whose result -typically {login, password}- will be sent as-is to the server.
- 
+
 myalert = function(msg){
 	alert(msg);
 };
@@ -110,8 +110,9 @@ SyncClient.prototype.defaultParams = {
 	"login": "",							// Default user login.
 	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
 	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
+	"zipData": false,						// If true, server changes are zipped before being sent
 	"welcomeMessage": "To begin, please press Sync button",
-	"onSyncEnd": "console.log('onSyncEnd')"				// Custom function called after sync end
+	"onSyncEnd": "console.log('onSyncEnd')",// Custom function called after sync end
 };
 
 function SyncClient(params){
@@ -132,7 +133,8 @@ function SyncClient(params){
 
 	// this.disableIndexedDBOpen();
 	
-	includeFile("db-connectors/base.js")
+	includeFile("libs/pako.min.js")		// zip library
+	.then(()=>{return includeFile("db-connectors/base.js");})
 	.then(()=>{
 		if ( self.connectorType == "IonicStorage" ){
 			self.dbName = "_ionicstorage";		// name of the database of Ionic Storage key-value pair store when used in IndexedDB (and WebSQL ?)
@@ -566,15 +568,25 @@ SyncClient.prototype.showAlert = function(msg){
 SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 	// Types of server messages handled:
 	// * serverSync => contains a list of modified tables)
-	console.log('Received: ' + msg);
 	var self = this;
 	return new Promise(function(resolve,reject){
 		var data;
+		if ( self.expectZipData ){
+			try {
+				var u = pako.inflate(atob(msg));
+				msg = new TextDecoder().decode(u);
+			} catch (err) {
+			  // console.log("Error trying to unzip data: " + err);
+			  // console.log("Zipped data: " + msg);
+			}
+		}
+		console.log('Received: ' + msg);
 		try{data = JSON.parse(msg);}
 		catch(e){
 			self.showToast("Bad server data format", "error");
 			return reject("Bad server data format");
 		}
+		self.expectZipData = false;		// reset
 		if ( data && data.err ){
 			self._onSyncError(data);
 			//return reject(data);
@@ -1128,6 +1140,24 @@ SyncClient.prototype.requestSchemaUpgrade = function(){
 	return self.sendRequest(req);
 };
 
+/* SyncClient.prototype.requestChanges = function(tables, reactive){
+	// tables array is optionnal. If omitted, all tables changes will be requested.
+	var self = this;
+	if ( tables && Array.isArray(tables) && tables.length  )
+		console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
+	else
+		console.log("Requesting changes from server (for all tables)...");
+	var tablesToSync = this.getTablesToSync();
+	var requestTables;
+	if ( tables && Array.isArray(tables) && tables.length )
+		requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
+	else
+		requestTables = tablesToSync;
+	var req = {getChanges:requestTables};
+	if ( reactive )
+		req.reactive = true;
+	return self.sendRequest(req);
+}; */
 SyncClient.prototype.requestChanges = function(tables, reactive){
 	// tables array is optional. If omitted, all tables changes will be requested.
 	var self = this;
@@ -1141,7 +1171,8 @@ SyncClient.prototype.requestChanges = function(tables, reactive){
 		requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
 	else
 		requestTables = tablesToSync;
-	var req = {getChanges:requestTables};
+	var req = {getChanges:requestTables, zipData:self.zipData};
+	self.expectZipData = self.zipData;
 	if ( reactive )
 		req.reactive = true;
 	return self.sendRequest(req);
@@ -1202,6 +1233,7 @@ SyncClient.prototype.handleServerChanges = function(changes){
 
 // TODO: maybe performances might be improved using parallel upserts into different tables ?
 SyncClient.prototype.handleUpserts = function(upserts, keyNames){
+	console.log("handleUpserts...");
 	if ( !upserts || !Object.keys(upserts).length )
 		return Promise.resolve([]);
 	var self = this;
@@ -1225,6 +1257,7 @@ SyncClient.prototype.handleUpserts = function(upserts, keyNames){
 };
 
 SyncClient.prototype.handleDeletes = function(deletes, keyNames){
+	console.log("handleDeletes...");
 	if ( !deletes || !Object.keys(deletes).length )
 		return Promise.resolve([]);
 	var self = this;

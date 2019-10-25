@@ -80,6 +80,11 @@ default: ""
 If set, defines a user password source object within the application, for instance: "document.getElementById('inputPassword').value"  
 default: ""
 
+**zipData**  
+values: "true", "false"
+If true, server will be requested to send data changes as zipped JSON, otherwise plain JSON.
+default: "false"
+
 **welcomeMessage**  
 Message that will popup in the app before the first synchronization.  
 default: "To begin, please press Sync button"

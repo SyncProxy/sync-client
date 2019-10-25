@@ -344,6 +344,7 @@ DBConnectorSQLiteBase.prototype.getColDef = function(table, colName){
 				defaultVal = " DEFAULT " + defaultVal;
 			else
 				defaultVal = "";
+			// return col.Type + primaryKey + size + nullable + defaultVal;
 			return col.Type + size + primaryKey + nullable + defaultVal;
 		}
 	}
@@ -385,8 +386,8 @@ DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
 							var sqlAddCol = "ALTER TABLE `" + table.Name + "` ADD `" + col.Name + "` " + self.getColDef(table, col.Name);
 							console.log(sqlAddCol);
 							tx.executeSql(sqlAddCol, [], null, function(tx,err){
-								console.log("Column " + table.Name + "." + col.Name + " was not added (maybe it already exists ?)");
-								console.dir(err);
+								// console.log("Column " + table.Name + "." + col.Name + " was not added (maybe it already exists ?)");
+								// console.dir(err);
 								return false;		// ignore error
 							});
 						}
@@ -515,16 +516,20 @@ DBConnectorSQLiteBase.prototype.handleDeletes = function(tableName, deletes, key
 	return new Promise(function(resolve,reject){
 		var db = self.openDB();
 		db.transactionSTD(function(tx){
-			var sql = "DELETE FROM `" + tableName + "` WHERE " + keyName + " IN (" + deletes.map(d=>"?").join(",") + ")";
-			tx.executeSql(sql, deletes,
-				function(tx, data){
-					return resolve();
-				},
-				function(tx, err){
-					console.log(err);
-					reject(err);
-				}
-			);
+			// SQLite engine limits the number of variables to 999 per query: cut the DELETE into pieces if necessary.
+			while ( deletes.length ){
+				var deletesPart = deletes.splice(0,999);
+				var sql = "DELETE FROM `" + tableName + "` WHERE " + keyName + " IN (" + deletesPart.map(d=>"?").join(",") + ")";
+				tx.executeSql(sql, deletesPart,
+					function(tx, data){
+						return resolve();
+					},
+					function(tx, err){
+						console.log(err);
+						reject(err);
+					}
+				);
+			}
 		});
 	});
 };
