@@ -340,11 +340,10 @@ DBConnectorSQLiteBase.prototype.getColDef = function(table, colName){
 				size = "(" + size + ")";
 			else
 				size = "";
-			if ( defaultVal !== null )
+			if ( !primaryKey && !!defaultVal )
 				defaultVal = " DEFAULT " + defaultVal;
 			else
 				defaultVal = "";
-			// return col.Type + primaryKey + size + nullable + defaultVal;
 			return col.Type + size + primaryKey + nullable + defaultVal;
 		}
 	}
@@ -376,6 +375,7 @@ DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
 					continue;
 				}
 				var sql = "CREATE TABLE IF NOT EXISTS `" + table.Name + "` (`" + table.PK + "` " + self.getColDef(table, table.PK) + ")";
+				console.log(sql);
 				tx.executeSql(sql, [],
 					function(tx, result){
 						// Create columns

@@ -606,6 +606,25 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			self._onAuthenticated();
 			return resolve(data);
 		}
+		else if ( synchronousRequestType == "getSchemaUdpate"){
+			if (self.clientSyncsPending > 0)
+				self.clientSyncsPending--;
+			if ( data.schema && data.schema.Tables && data.schema.Tables.length )
+				self.onSchemaUpdate(data.schema);
+			return resolve();
+		}
+		else if ( synchronousRequestType == "getSyncProfile"){
+			// User sync profile received
+			if (self.clientSyncsPending > 0)
+				self.clientSyncsPending--;
+			if ( data.syncRules == {} )
+				return reject("No tables to sync");
+			else{
+				self.cacheSyncProfile(data.syncRules);
+				return self.getAndSendClientChanges(self.syncType == 2)
+				.then(()=>resolve());
+			}
+		}
 		if ( data.serverSync ){
 			// A server sync has been orderd by server => json.serverSync contains the list of tables to sync.
 			if ( !self.serverSyncsPending && !self.clientSyncsPending ){
@@ -615,20 +634,14 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			else
 				return resolve();
 		}
-/*		else if ( data.schema && data.schema.Tables && data.schema.Tables.length ){
-			if (self.clientSyncsPending > 0)
-				self.clientSyncsPending--;
-			self.onSchemaUpdate(data.schema);
-			return resolve();
-		}*/
-		else if ( data.schema ){
+/*  		else if ( data.schema ){
 			if (self.clientSyncsPending > 0)
 				self.clientSyncsPending--;
 			if ( data.schema.Tables && data.schema.Tables.length )
 				self.onSchemaUpdate(data.schema);
 			return resolve();
-		}
-		else if (data.syncRules){
+		} */
+/* 		else if (data.syncRules){
 			// User sync profile received
 			if (self.clientSyncsPending > 0)
 				self.clientSyncsPending--;
@@ -639,7 +652,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 				return self.getAndSendClientChanges(self.syncType == 2)
 				.then(()=>resolve());
 			}
-		}
+		} */
 		else if ( data.clientChangesReceived ) {
 			// Server has received client changes
 			if (self.clientSyncsPending > 0)
@@ -1017,7 +1030,7 @@ SyncClient.prototype.sendRequest = function(data, synchronousRequest){
 				self.serverConnection.onmessage = function(event){
 					return self.onServerMessage(event.data, synchronousRequest)
 					.then(res=>{
-						if ( res.err )
+						if ( res && res.err )
 							return reject(res);
 						return resolve(res);
 					})
@@ -1132,12 +1145,13 @@ SyncClient.prototype.sendClientChanges = function(changes, reactive){
 	return self.sendRequest(changes);
 };
 
-SyncClient.prototype.requestSchemaUpgrade = function(){
+SyncClient.prototype.requestSchemaUpdate = function(){
 	// Query the server for any schema modification
 	var self = this;
 	console.log("Requesting schema update from server...");
 	var req = {getSchemaUpdate:true};
-	return self.sendRequest(req);
+	// return self.sendRequest(req);
+	return self.sendRequest(req, "getSchemaUdpate");
 };
 
 /* SyncClient.prototype.requestChanges = function(tables, reactive){
@@ -1200,7 +1214,7 @@ SyncClient.prototype.requestSyncProfile = function(){
 	var self = this;
 	console.log("Requesting user's sync profile from server...");
 	var req = {getSyncProfile:true};
-	return self.sendRequest(req);
+	return self.sendRequest(req, "getSyncProfile");
 };
 
 SyncClient.prototype.handleServerChanges = function(changes){
@@ -1480,8 +1494,8 @@ SyncClient.prototype.clientSync = function(reactive){
 	.then(()=>self.connect())
 	.then(()=>logMs("CLIENT SYNC STARTED"))
 	.then(()=>{ this.clientSyncsPending++; if (reactive) self.syncType = 2; self.sendEvent("syncPending", {reactive:reactive});})
-	.then(()=>{if (!reactive) self.requestSchemaUpgrade();})
-	.then(()=>{if (reactive) self.getAndSendClientChanges(reactive); else self.requestSyncProfile();})		// in full sync, client changes must be sent AFTER receiving sync profile. In reactive sync, send changes right now.
+	.then(()=>{if (!reactive) return self.requestSchemaUpdate();})
+	.then(()=>{if (reactive) return self.getAndSendClientChanges(reactive); else return self.requestSyncProfile();})		// in full sync, client changes must be sent AFTER receiving sync profile. In reactive sync, send changes right now.
 	.catch(err=>{if (reactive) self._onSyncError(err); else return Promise.reject(err);})
 };
 
