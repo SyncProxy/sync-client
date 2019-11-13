@@ -570,14 +570,14 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 	// * serverSync => contains a list of modified tables)
 	var self = this;
 	return new Promise(function(resolve,reject){
-		var data;
-		if ( self.expectZipData ){
+		var data, zipped;
+		var firstChar = msg.substr(0,1);
+		if ( self.zipData && (['{'].indexOf(firstChar) == -1) ){
+			// The stream doesn't start with a JSON start character: it is supposed to be a zipped JSON string (unless an error was encountered).
 			try {
 				var u = pako.inflate(atob(msg));
 				msg = new TextDecoder().decode(u);
 			} catch (err) {
-			  // console.log("Error trying to unzip data: " + err);
-			  // console.log("Zipped data: " + msg);
 			}
 		}
 		console.log('Received: ' + msg);
@@ -1491,7 +1491,7 @@ SyncClient.prototype.clientSync = function(reactive){
 		return Promise.resolve();
 	}
 	return self.authenticate()
-	.then(()=>self.connect())
+	// .then(()=>self.connect())
 	.then(()=>logMs("CLIENT SYNC STARTED"))
 	.then(()=>{ this.clientSyncsPending++; if (reactive) self.syncType = 2; self.sendEvent("syncPending", {reactive:reactive});})
 	.then(()=>{if (!reactive) return self.requestSchemaUpdate();})
@@ -1509,7 +1509,7 @@ SyncClient.prototype.serverSync = function(reactive, tables){
 	var handledTables = [];
 	return self.authenticate()
 	.then(()=>logMs("SERVER SYNC STARTED"))
-	.then(()=>self.connect())
+	// .then(()=>self.connect())
 	.then(()=>{self.serverSyncsPending++; if (reactive) {self.syncType = 2; self.sendEvent("syncPending", {reactive:reactive});}})
 	.then(()=>self.requestChanges(tables, reactive))
 	.catch(err=>{if (reactive) self._onSyncError(err); else return Promise.reject(err);})
