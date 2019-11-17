@@ -434,7 +434,7 @@ SyncClient.prototype._onSyncPending = function(reactive){
 };
 
 SyncClient.prototype._onSyncEnd = function(reactive){
-	//this.resetSyncsPending();
+	this.resetChunkNumber();
 	this.updateSyncButton();
 	if ( !reactive )
 		this.showToast("Sync ended successfully", "success");
@@ -455,11 +455,17 @@ SyncClient.prototype._onSyncError = function(err){
 	this.resetSendings();
 
 	var self = this;
+	if ( (err.err == "SESSION FAILURE") || (err.err == "MISSING FOLDER") )
+		this.resetChunkNumber();
+	
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
+		if ( this.sessionId )
+			delete this.sessionId;
+		this.lastAuthFailed = true;
 		this.stopAutoReconnect();
 		this.disableAutoReconnect = true;
-		if ( this.password ) delete this.password;
-		delete this.sessionId;
+		if ( this.password )
+			delete this.password;
 	}
 	if ( err.warning && err.message )
 		this.showToast(err.message, "warning");
@@ -480,8 +486,9 @@ SyncClient.prototype._onSyncError = function(err){
 		else
 			this.showToast("Sync error", "error");
 	}
-	if ( err.err == "SESSION FAILURE" )
+	if ( err.err == "SESSION FAILURE" ){
 		window.setTimeout(function(){self.showToast("Press Sync to start a new session", "info");}, 5000);
+	}
 	this.resetSyncsPending();
 	this.updateSyncButton();	
 	this.sendEvent("syncError");
@@ -586,7 +593,9 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			self.showToast("Bad server data format", "error");
 			return reject("Bad server data format");
 		}
-		self.expectZipData = false;		// reset
+		if ( data.chunk )
+			console.log("Receiving server data chunk #" + data.chunk);
+		
 		if ( data && data.err ){
 			self._onSyncError(data);
 			//return reject(data);
@@ -694,10 +703,21 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 		}
 		else if ( data.Deletes || data.Updates || data.Inserts ){
 			// Changes received from server.
+			// If data.chunk is definend: data has been chunked by server to reduce stream size: handle received data, then request the next chunk
 			self.handleServerChanges(data)
-			.then(res=>{handledTables = res;})
-			.then(()=>self.endServerSync(handledTables))
+			.then(res=>{
+				if ( data.chunk ){
+					self.saveChunkNumber(data.chunk);		// save chunk for recovery if necessary
+					return self.requestNextChunk(data.chunk);
+				}
+				else{
+					handledTables = res;
+					return self.endServerSync(handledTables);
+				}
+			})
 			.then(res=>resolve(res));
+			// .then(()=>self.endServerSync(handledTables))
+			// .then(res=>resolve(res));
 		}
 		else if ( data.end ){
 			// Server sync just ended
@@ -1049,11 +1069,15 @@ SyncClient.prototype.sendRequest = function(data, synchronousRequest){
 };
 
 SyncClient.prototype.sendAuthenticationRequest = function(data) {
+	var self = this;
+	if ( this.authRequestPending )
+		return Promise.resolve();
 	data.proxyId = this.proxyId;
 	var clientCode = this.getSyncClientCode();
 	if ( clientCode )
 		data.clientCode = clientCode;
 	this.authRequestPending = true;
+	window.setTimeout(function(){ self.authRequestPending = false;}, 3000);
 	return this.sendRequest(data, "authentication");
 };
 
@@ -1142,7 +1166,7 @@ SyncClient.prototype.sendClientChanges = function(changes, reactive){
 	console.log("Sending changes to server...");
 	if ( reactive )
 		changes.reactive = true;
-	return self.sendRequest(changes);
+	return self.sendRequest(changes, "sendChanges");
 };
 
 SyncClient.prototype.requestSchemaUpdate = function(){
@@ -1172,13 +1196,41 @@ SyncClient.prototype.requestSchemaUpdate = function(){
 		req.reactive = true;
 	return self.sendRequest(req);
 }; */
+
+// Save chunk number for recovery if necessary
+SyncClient.prototype.saveChunkNumber = function(chunkNum){
+	return this.setItem("lastChunkNumber", chunkNum);
+};
+	
+// Get chunk number for recovery (avoid requesting all changes from server again).
+SyncClient.prototype.getChunkNumber = function(){
+	var num = this.getItem("lastChunkNumber");
+	if ( num )
+		return parseInt(num);
+};
+
+SyncClient.prototype.resetChunkNumber = function(){
+	return this.removeItem("lastChunkNumber");
+};
+
+SyncClient.prototype.requestNextChunk = function(currentChunk){
+	var self = this;
+	console.log("Requesting next chunk of data changes from server (last received chunk:" + currentChunk + ")");
+	return self.sendRequest({getNextChunk:currentChunk, zipData:self.zipData});
+};
+
 SyncClient.prototype.requestChanges = function(tables, reactive){
 	// tables array is optional. If omitted, all tables changes will be requested.
 	var self = this;
+	var lastChunk = self.getChunkNumber();
+	if ( lastChunk )
+		return self.requestNextChunk(lastChunk);
+	
 	if ( tables && Array.isArray(tables) && tables.length  )
 		console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
 	else
 		console.log("Requesting changes from server (for all tables)...");
+
 	var tablesToSync = this.getTablesToSync(reactive, "dbSync");
 	var requestTables;
 	if ( tables && Array.isArray(tables) && tables.length )
@@ -1186,7 +1238,6 @@ SyncClient.prototype.requestChanges = function(tables, reactive){
 	else
 		requestTables = tablesToSync;
 	var req = {getChanges:requestTables, zipData:self.zipData};
-	self.expectZipData = self.zipData;
 	if ( reactive )
 		req.reactive = true;
 	return self.sendRequest(req);
@@ -1217,6 +1268,8 @@ SyncClient.prototype.requestSyncProfile = function(){
 	return self.sendRequest(req, "getSyncProfile");
 };
 
+// Handle server changes Deletes/Updates/Inserts
+// If replaceByKeys = true, replace all docs of changes.Updates and changes.Inserts by their PK values
 SyncClient.prototype.handleServerChanges = function(changes){
 	var self = this;
 	console.log("Handling changes received from server...");
@@ -1238,10 +1291,15 @@ SyncClient.prototype.handleServerChanges = function(changes){
 	}
 	return this.getChangesKeyNames(changes)
 	.then(res=>{keyNames = res;})
-	.then(()=>self.handleDeletes(changes.Deletes, keyNames))
-	.then(res=>{handledTables = res;})
+	// .then(()=>self.handleDeletes(changes.Deletes, keyNames))
 	.then(()=>self.handleUpserts(upserts, keyNames))
-	.then(res=>{handledTables = handledTables.concat(res); return handledTables;})
+	.then(res=>{handledTables = res;})
+	// .then(()=>self.handleUpserts(upserts, keyNames))
+	.then(()=>self.handleDeletes(changes.Deletes, keyNames))		// important ! Deletes must be handled AFTER Upserts, particularly in case some rows excluded by filters were updated
+	.then(res=>{
+		handledTables = handledTables.concat(res);
+		return handledTables;
+	})
 	.catch(err=>{console.log("Error during server data reception: " + err); return Promise.reject(err);});
 };
 
