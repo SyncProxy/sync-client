@@ -351,7 +351,6 @@ DBConnectorSQLiteBase.prototype.getColDef = function(table, colName){
 };
 
 DBConnectorSQLiteBase.prototype.upgradeDatabase = function(schema){
-	console.log("upgradeDatabase");
 	var currVersion = this.getDBVersion();
 	console.log("currVersion=" + currVersion + " newSchema.version=" + schema.version);
 	var firstUpgrade;

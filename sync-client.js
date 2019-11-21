@@ -398,7 +398,8 @@ SyncClient.prototype._onConnected = function(){
 };
 
 SyncClient.prototype._onAuthenticated = function(){
-	//this.disableAutoReconnect = false;
+	this.lastSyncFailed = false;
+	this.updateSyncButton();
 	this.sendEvent("authenticated");
 };
 
@@ -420,7 +421,7 @@ SyncClient.prototype._onDisconnected = function(){
 	this.serverConnection = null;
 	this.connected = false;
 	if (this.showStatus)
-	this.showToast("Disconnected", "warning");
+		this.showToast("Disconnected", "warning");
 	this.updateSyncButton();
 	this.autoReconnect();
 	this.sendEvent("disconnected");
@@ -459,6 +460,7 @@ SyncClient.prototype._onSyncError = function(err){
 		this.resetChunkNumber();
 	
 	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
+		// Will force a new authentication with login/password
 		if ( this.sessionId )
 			delete this.sessionId;
 		this.lastAuthFailed = true;
@@ -473,8 +475,8 @@ SyncClient.prototype._onSyncError = function(err){
 		this.showToast(err.warning, "warning");
 	else if (err != "Cancel"){
 		this.lastSyncFailed = true;
-		if ( err == "Not authenticated" )
-			this.showToast("Not authenticated", "error");
+		// if ( err == "Not authenticated" )
+			// this.showToast("Not authenticated", "error");
 		if ( err && err.err && err.message && (err.message.toString() != "[object Object]") )
 			this.showToast(err.err + ": " + err.message, "error");
 		else if (err && err.err)
@@ -487,7 +489,7 @@ SyncClient.prototype._onSyncError = function(err){
 			this.showToast("Sync error", "error");
 	}
 	if ( err.err == "SESSION FAILURE" ){
-		window.setTimeout(function(){self.showToast("Press Sync to start a new session", "info");}, 5000);
+		window.setTimeout(function(){self.showToast("Next sync will start a new session", "info");}, 5000);
 	}
 	this.resetSyncsPending();
 	this.updateSyncButton();	
@@ -597,9 +599,9 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			console.log("Receiving server data chunk #" + data.chunk);
 		
 		if ( data && data.err ){
-			self._onSyncError(data);
-			//return reject(data);
-			return resolve(data);
+			// self._onSyncError(data);
+			// return resolve(data);
+			return reject(data);
 		}
 		if ( data && data.warning ){
 			self._onSyncError(data);
@@ -607,7 +609,6 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			return resolve(data);
 		}
 		if ( synchronousRequestType == "authentication"){
-			console.log("Authenticated sessionId:" + data.sessionId);
 			self.sessionId = data.sessionId;
 			if ( data.clientCode )
 				self.saveSyncClientCode(data.clientCode);
@@ -1032,7 +1033,7 @@ SyncClient.prototype.authenticate = function() {
 		return Promise.resolve(true);
 	var self = this;
 	return this.getCredentials()
-	.then(res=>{return self.sendAuthenticationRequest(res);})
+	.then(res=>self.sendAuthenticationRequest(res));
 };
 
 SyncClient.prototype.sendRequest = function(data, synchronousRequest){
@@ -1046,6 +1047,8 @@ SyncClient.prototype.sendRequest = function(data, synchronousRequest){
 			// Does the client expect an immediate response from the server ?
 			if (!self.serverConnection)
 				return reject("Server connection is no longer valid");
+			if ( synchronousRequest && (synchronousRequest != "authentication") && !self.isAuthenticated() )
+				return reject("Not authenticated");
 			if ( synchronousRequest ){
 				self.serverConnection.onmessage = function(event){
 					return self.onServerMessage(event.data, synchronousRequest)
@@ -1057,13 +1060,11 @@ SyncClient.prototype.sendRequest = function(data, synchronousRequest){
 					.catch(err=>reject(err));
 				};
 			}
-			if ( synchronousRequest && (synchronousRequest != "authentication") && !self.isAuthenticated() )
-				return reject("Not authenticated");
-			if ( !synchronousRequest ){
+			else {
 				self.setDefaultServerMessageHandler();
 				resolve();
 			}
-			self.serverConnection.send(JSON.stringify(data));
+			return self.serverConnection.send(JSON.stringify(data));
 		});
 	})
 };
