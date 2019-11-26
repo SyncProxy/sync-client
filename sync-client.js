@@ -638,6 +638,8 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 		if ( data.serverSync ){
 			// A server sync has been orderd by server => json.serverSync contains the list of tables to sync.
 			if ( !self.serverSyncsPending && !self.clientSyncsPending ){
+				if ( data.serverSync.length && (data.serverSync[0].indexOf(",") >= 0) )
+					data.serverSync = data.serverSync[0].split(",").map(x=>x.trim());
 				self.serverSync(true, data.serverSync, true)
 				.then(res=>resolve(res));
 			}
@@ -1207,14 +1209,6 @@ SyncClient.prototype.requestChanges = function(tables, reactive, forceTablesList
 	if ( lastChunk )
 		return self.requestNextChunk(lastChunk);
 	
-	// if ( tables && Array.isArray(tables) && tables.length  )
-		// console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
-	// else
-		// console.log("Requesting changes from server (for all tables)...");
-
-	if ( typeof tables == "string" )
-		tables = tables.split(",").map(x=>x.trim());
-
 	var requestTables;
 	if ( forceTablesList )
 		requestTables = tables;
@@ -1225,7 +1219,6 @@ SyncClient.prototype.requestChanges = function(tables, reactive, forceTablesList
 		else
 			requestTables = tablesToSync;
 	}
-
 	if ( tables && Array.isArray(tables) && tables.length  )
 		console.log("Requesting changes from server for table(s) " + requestTables.join(",") + "...");
 	else
