@@ -638,7 +638,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 		if ( data.serverSync ){
 			// A server sync has been orderd by server => json.serverSync contains the list of tables to sync.
 			if ( !self.serverSyncsPending && !self.clientSyncsPending ){
-				self.serverSync(true, data.serverSync)
+				self.serverSync(true, data.serverSync, true)
 				.then(res=>resolve(res));
 			}
 			else
@@ -1175,28 +1175,8 @@ SyncClient.prototype.requestSchemaUpdate = function(){
 	var self = this;
 	console.log("Requesting schema update from server...");
 	var req = {getSchemaUpdate:true};
-	// return self.sendRequest(req);
 	return self.sendRequest(req, "getSchemaUdpate");
 };
-
-/* SyncClient.prototype.requestChanges = function(tables, reactive){
-	// tables array is optionnal. If omitted, all tables changes will be requested.
-	var self = this;
-	if ( tables && Array.isArray(tables) && tables.length  )
-		console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
-	else
-		console.log("Requesting changes from server (for all tables)...");
-	var tablesToSync = this.getTablesToSync();
-	var requestTables;
-	if ( tables && Array.isArray(tables) && tables.length )
-		requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
-	else
-		requestTables = tablesToSync;
-	var req = {getChanges:requestTables};
-	if ( reactive )
-		req.reactive = true;
-	return self.sendRequest(req);
-}; */
 
 // Save chunk number for recovery if necessary
 SyncClient.prototype.saveChunkNumber = function(chunkNum){
@@ -1220,24 +1200,37 @@ SyncClient.prototype.requestNextChunk = function(currentChunk){
 	return self.sendRequest({getNextChunk:currentChunk, zipData:self.zipData});
 };
 
-SyncClient.prototype.requestChanges = function(tables, reactive){
+SyncClient.prototype.requestChanges = function(tables, reactive, forceTablesList){		// if forceTablesList=true, ignore tablesToSync
 	// tables array is optional. If omitted, all tables changes will be requested.
 	var self = this;
 	var lastChunk = self.getChunkNumber();
 	if ( lastChunk )
 		return self.requestNextChunk(lastChunk);
 	
+	// if ( tables && Array.isArray(tables) && tables.length  )
+		// console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
+	// else
+		// console.log("Requesting changes from server (for all tables)...");
+
+	if ( typeof tables == "string" )
+		tables = tables.split(",").map(x=>x.trim());
+
+	var requestTables;
+	if ( forceTablesList )
+		requestTables = tables;
+	else {
+		var tablesToSync = this.getTablesToSync(reactive, "dbSync");
+		if ( tables && Array.isArray(tables) && tables.length )
+			requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
+		else
+			requestTables = tablesToSync;
+	}
+
 	if ( tables && Array.isArray(tables) && tables.length  )
-		console.log("Requesting changes from server for table(s) " + tables.join(",") + "...");
+		console.log("Requesting changes from server for table(s) " + requestTables.join(",") + "...");
 	else
 		console.log("Requesting changes from server (for all tables)...");
 
-	var tablesToSync = this.getTablesToSync(reactive, "dbSync");
-	var requestTables;
-	if ( tables && Array.isArray(tables) && tables.length )
-		requestTables = tablesToSync.filter(function(x){return tables.indexOf(x) !== -1;});
-	else
-		requestTables = tablesToSync;
 	var req = {getChanges:requestTables, zipData:self.zipData};
 	if ( reactive )
 		req.reactive = true;
@@ -1558,7 +1551,7 @@ SyncClient.prototype.clientSync = function(reactive){
 	.catch(err=>{if (reactive) self._onSyncError(err); else return Promise.reject(err);})
 };
 
-SyncClient.prototype.serverSync = function(reactive, tables){
+SyncClient.prototype.serverSync = function(reactive, tables, forceTablesList){
 	if ( this.serverSyncsPending )
 		return Promise.resolve();
 	this.lastSyncFailed = false;
@@ -1570,7 +1563,7 @@ SyncClient.prototype.serverSync = function(reactive, tables){
 	.then(()=>logMs("SERVER SYNC STARTED"))
 	// .then(()=>self.connect())
 	.then(()=>{self.serverSyncsPending++; if (reactive) {self.syncType = 2; self.sendEvent("syncPending", {reactive:reactive});}})
-	.then(()=>self.requestChanges(tables, reactive))
+	.then(()=>self.requestChanges(tables, reactive, forceTablesList))
 	.catch(err=>{if (reactive) self._onSyncError(err); else return Promise.reject(err);})
 };
 
