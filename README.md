@@ -96,6 +96,9 @@ default: "true"
 **onSyncEnd**  
 Handler function called each time synchronization ends
 
+**useSessionStorage**
+Use the sessionStorage in replacement of the localStorage (for testing purposes)
+
 ## Testing
 Like us, test your mobile and progressive web apps with
 
