@@ -9,7 +9,6 @@
 myalert = function(msg){
 	alert(msg);
 };
-
 Storage.prototype.setItemSTD = Storage.prototype.setItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
 Storage.prototype.removeItemSTD = Storage.prototype.removeItem;		// save a copy of standard localStorage.setItem() function, which is monkey-patched when using LocalStorage driver
 
@@ -113,6 +112,7 @@ SyncClient.prototype.defaultParams = {
 	"zipData": false,						// If true, server changes are zipped before being sent
 	"welcomeMessage": "To begin, please press Sync button",
 	"onSyncEnd": "console.log('onSyncEnd')",// Custom function called after sync end
+	"useSessionStorage": false				// Use sessionStorage instead of localSro
 };
 
 function SyncClient(params){
@@ -122,6 +122,12 @@ function SyncClient(params){
 			this[p] = params[p];
 		else 
 			this[p] = SyncClient.prototype.defaultParams[p];
+	}
+	
+	// For testing purpose localStorage can be replaced with volatile sessionStorage (enables browser multi-tabs testing with different sync clients)
+	if ( this.useSessionStorage && this.useSessionStorage.toString() == "true" ){
+		delete localStorage;
+		localStorage = sessionStorage;
 	}
 	var reactive = false;
 	this.lastAuthFailed = false;
@@ -249,6 +255,11 @@ SyncClient.prototype.resetIndexedDBOpen = function(){
 				if ( idb.restartNeeded ){
 					console.log("App attempt to open IndexedDB on start was blocked by sync client's database update. App will restart.");
 					self.showToast("Application needs to restart", "warning");
+					window.setTimeout(function(){
+						self.stopAutoReconnect();
+						if ( self.serverConnection )
+							self.serverConnection.close();
+					}, 100);
 					window.setTimeout(function(){
 						location.reload();
 					}, 3000);
@@ -599,9 +610,9 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			console.log("Receiving server data chunk #" + data.chunk);
 		
 		if ( data && data.err ){
-			// self._onSyncError(data);
-			// return resolve(data);
-			return reject(data);
+			self._onSyncError(data);
+			return resolve(data);
+			// return reject(data);
 		}
 		if ( data && data.warning ){
 			self._onSyncError(data);
@@ -738,6 +749,12 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 
 SyncClient.prototype.showMustUpgradeWarning = function(){
 	this._onSyncCancel("Database initialization... Application will restart", "warning");
+	var self = this;
+	window.setTimeout(function(){
+		self.stopAutoReconnect();
+		if ( self.serverConnection )
+			self.serverConnection.close();
+	}, 1000);
 	window.setTimeout(function(){
 		location.reload();
 	}, 3000);
@@ -1123,7 +1140,7 @@ SyncClient.prototype.connect = function(){
 		}
 		if ( self.isConnected() )
 			return resolve(self.serverConnection);
-			self.serverConnection = new WebSocket(self.protocol + "://" + self.serverUrl + ":" + self.serverPort);
+		self.serverConnection = new WebSocket(self.protocol + "://" + self.serverUrl + ":" + self.serverPort);
         self.serverConnection.onopen = function() {
 			self._onConnected();
             resolve(self.serverConnection);
