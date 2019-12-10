@@ -101,6 +101,7 @@ SyncClient.prototype.defaultParams = {
 	"dbName": "",							// Client databse name
 	"dbLocation": "default",				// Client databse location (used by SQLite driver)
 	"autoUpgradeDB": "true",				// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
+	"physicalSchemaReadDelay": "5000",		// Delay after which, if no sync schema was found, the sync client will try to read the schema from the physical data store
 	"autoInit": true,						// If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 	"reactiveSync": true,					// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
 	"syncButton": true,						// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
@@ -1157,16 +1158,11 @@ SyncClient.prototype.connect = function(){
     });
 };
 
-// TODO:
-// Websockets have a buffer size limitation (see ws.setBinaryFragmentation(bytes) on https://www.npmjs.com/package/nodejs-websocket)
-// Modifiy changes detection to limit size of changes being sent at once.
 SyncClient.prototype.getClientChanges = function(){
 	// Get changes on client
 	console.log("Getting changes on client...");
 	var tables = this.getTablesToSync();
 	if ( !tables || (tables.length == 0) ){
-//		this.showAlert(Translate("Your sync profile has no table to sync ! Synchronization was aborted."));
-		// return Promise.reject("No tables to sync");
 		console.log("No tables to sync to the server");
 		return Promise.resolve({Deletes:{}, Upserts:{}});
 	}
@@ -1176,7 +1172,16 @@ SyncClient.prototype.getClientChanges = function(){
 		self.getDeletes(tables)
 		.then(res=>{changes.Deletes=res;})
 		.then(res=>{return self.getUpserts(tables);})
-		.then(res=>{console.log("Done"); changes.Upserts=res; return resolve(changes);})
+		.then(res=>{
+			changes.Upserts=res;
+			if (!Object.keys(changes.Deletes).length && !Object.keys(changes.Upserts).length){
+				console.log("Done: no changes");
+				// return resolve();
+			}
+			else
+				console.log("Done");
+			return resolve(changes);
+		});
 	});
 };
 
@@ -1216,7 +1221,7 @@ SyncClient.prototype.resetChunkNumber = function(){
 SyncClient.prototype.requestNextChunk = function(currentChunk){
 	var self = this;
 	console.log("Requesting next chunk of data changes from server (last received chunk:" + currentChunk + ")");
-	return self.sendRequest({getNextChunk:currentChunk, zipData:self.zipData});
+	return self.sendRequest({getNextChunk:currentChunk, zipData:self.zipData, clientCode:this.getSyncClientCode()});
 };
 
 SyncClient.prototype.requestChanges = function(tables, reactive, forceTablesList){		// if forceTablesList=true, ignore tablesToSync
@@ -1541,6 +1546,42 @@ SyncClient.prototype.getAndSendClientChanges = function(reactive){
 	.then(()=>self.markChangesAsBeingSent(self.changes))
 	.then(()=>self.sendClientChanges(self.changes, reactive))
 };
+
+/*
+SyncClient.prototype.getAndSendClientChanges = function(reactive){
+	if (this.mustUpgrade)
+		return Promise.resolve();
+	var self = this;
+	return self.getClientChanges()
+	// .then(()=>{if (reactive && self.syncProfile && self.syncProfile.length ) return self.changes; return self.addChangesKeyNames(self.changes);})		// transmit client default keys to the server, in case server schema is not defined yet
+	.then(res=>{
+		self.changes = res;
+		if (!self.changes)
+			return Promise.resolve();
+		return self.addChangesKeyNames(self.changes);		// transmit client default keys to the server, in case server schema is not defined yet
+	})
+	.then(res=>{
+		if (!self.changes)
+			return Promise.resolve();
+		self.changes = res;
+		return self.markChangesAsBeingSent(self.changes);
+	})
+	.then(()=>{
+		if (!self.changes){
+			if (self.syncType == 2){
+				self._onSyncEnd(true);
+				return Promise.resolve();
+			}
+			else if (!self.serverSyncsPending)
+				return self.serverSync();
+			else
+				return Promise.resolve();
+		}
+		else
+			return self.sendClientChanges(self.changes, reactive);
+	});
+};
+*/
 
 SyncClient.prototype.clientSync = function(reactive){
 	var self = this;

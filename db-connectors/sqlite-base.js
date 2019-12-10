@@ -546,9 +546,11 @@ function DBConnectorSQLiteBase(dbName, syncClient, whichSqlitePlugin)
 	// If no schema is set, try to retrieve key columns from local database (use a timeout because DB is likely to be managed by app itself)
 	var self = this;
 	if ( syncClient ){
-		window.setTimeout(function(){
-			if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
-				self.getKeyNamesFromDatabase();
-		}, 2000);
+		var physicalSchemaReadDelay = syncClient.scriptParams["physicalSchemaReadDelay"];
+		if ( physicalSchemaReadDelay )
+			window.setTimeout(function(){
+				if ( !syncClient.schema || !Object.keys(syncClient.schema).length )
+					self.getKeyNamesFromDatabase();
+			}, physicalSchemaReadDelay);
 	}
 }

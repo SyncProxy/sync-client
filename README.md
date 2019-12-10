@@ -49,6 +49,11 @@ If true, the embedded database's structure will be automatically upgraded (if th
 Set to false if application creates and upgrades database schema by itself.  
 default: "true"
 
+**physicalSchemaReadDelay**  
+Delay after which, if no sync schema was found, the sync client will try to read the schema from the physical data store (if this is relevant to the type of database).
+If set to "0", the schema is not read from the physical data store.  
+default: "5000"
+
 **autoInit**  
 values: "true", "false"
 If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)  
@@ -82,7 +87,7 @@ default: ""
 
 **zipData**  
 values: "true", "false"
-If true, server will be requested to send data changes as zipped JSON, otherwise plain JSON.
+If true, server will be requested to send data changes as zipped JSON, otherwise plain JSON.  
 default: "false"
 
 **welcomeMessage**  
@@ -90,14 +95,17 @@ Message that will popup in the app before the first synchronization.
 default: "To begin, please press Sync button"
 
 **utcDates**
-If true (default), all datetimes will be stored as ISO-8601 strings, otherwise as "YYYY-MM-DD HH:MI:SS" (without timezone information).
+values: "true", "false"  
+If true (default), all datetimes will be stored as ISO-8601 strings, otherwise as "YYYY-MM-DD HH:MI:SS" (without timezone information).  
 default: "true"
 
 **onSyncEnd**  
-Handler function called each time synchronization ends
+Optional handler function called each time synchronization ends
 
-**useSessionStorage**
-Use the sessionStorage in replacement of the localStorage (for testing purposes)
+**useSessionStorage**  
+values: "true", "false"  
+If true, use the sessionStorage in replacement of the localStorage (for testing purposes)  
+Default: "false"
 
 ## Testing
 Like us, test your mobile and progressive web apps with
