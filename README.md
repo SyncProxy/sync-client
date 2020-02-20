@@ -113,7 +113,7 @@ Default: "false"
 ## Testing
 Like us, test your mobile and progressive web apps with
 
-![BrowserStack](https://raw.githubusercontent.com/syncproxy/sync-client/master/browserstack.png)
+[<img src="https://raw.githubusercontent.com/syncproxy/sync-client/master/browserstack.png" width="300px">](http://www.browserstack.com)
 
 ## Documentation
 Read our tutorial on how to setup SyncProxy client with an Ionic hybrid mobile application
