@@ -113,7 +113,7 @@ Default: "false"
 ## Testing
 Like us, test your mobile and progressive web apps with
 
-[<img src="https://p14.zdusercontent.com/attachment/1015988/xhbf3TBMImSwSmvre7tih36sU?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..COsnFxS-SgN1cn9JihtFaw.N8jUlNaqw59Ds-CRovWcf4miZx5tIU9Lhs8KEQ2JOEZr5XwRQbo2K2LPS3rUndakRvv6z-dnHz8spRW-umW1dyBqrx43LC_EhKXSSdrXnPE2Byjq4yDPA1Y0HMVHfZLxkGz3mXVyqb2zNRIotsSNjMEluIOcXjXpInIz2iOnt2GarlXRcGOp5ssQMUJ4vNcdihvIOxY3lYUkjDoWlnWgyMfqVn2eBtZVXPrm52gjfexXwi4Ct-MGYtQC1iZJ5iiAbCjsyeew51v8ZJqE5lYM7eQsoLx2No7mkGuCUnl6iDg.-VRGokd_4kLCE3N0xBxArw" width="300px">](http://www.browserstack.com)
+![BrowserStack](https://raw.githubusercontent.com/syncproxy/sync-client/master/browserstack.png)
 
 ## Documentation
 Read our tutorial on how to setup SyncProxy client with an Ionic hybrid mobile application
