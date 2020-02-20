@@ -92,6 +92,18 @@ SyncClient.prototype.removeItem = function(key){
 	localStorage.removeItemSTD(this.localStorageItemsPrefix + key);
 }
 
+SyncClient.prototype.setPrivateItem = function(key, value){
+	localStorage.setItemSTD(this.localStorageItemsPrefix + this.proxyId + "." + key, value);
+}
+
+SyncClient.prototype.getPrivateItem = function(key){
+	return localStorage.getItem(this.localStorageItemsPrefix + this.proxyId + "." + key);
+}
+
+SyncClient.prototype.removePrivateItem = function(key){
+	localStorage.removeItemSTD(this.localStorageItemsPrefix + this.proxyId + "." + key);
+}
+
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
 	"serverUrl": "my.syncproxy.com",		// Default: "my.syncproxy.com";
@@ -110,8 +122,9 @@ SyncClient.prototype.defaultParams = {
 	"login": "",							// Default user login.
 	"loginSource": "",						// User login source for sync server, for instance: "document.getElementById('inputLogin').value"
 	"passwordSource": "",					// User password source for sync server, for instance: "document.getElementById('inputPassword').value"
-	"zipData": false,						// If true, server changes are zipped before being sent
+	"zipData": true,						// If true, server changes are zipped before being sent
 	"welcomeMessage": "To begin, please press Sync button",
+	"onServerChanges": "",					// Custom function called after each chunk received from server. Changes are passed as a parameter to the handler function.
 	"onSyncEnd": "console.log('onSyncEnd')",// Custom function called after sync end
 	"useSessionStorage": false				// Use sessionStorage instead of localSro
 };
@@ -138,8 +151,6 @@ function SyncClient(params){
 	this.resetSyncsPending();
 	var self = this;
 
-	// this.disableIndexedDBOpen();
-	
 	includeFile("libs/pako.min.js")		// zip library
 	.then(()=>{return includeFile("db-connectors/base.js");})
 	.then(()=>{
@@ -153,17 +164,11 @@ function SyncClient(params){
 		if ( (self.connectorType == "WebSQL") || (self.connectorType == "SQLite") )
 			return includeFile("db-connectors/sqlite-base.js");
 	})
+	.then(()=>{self.loadSchema(); return self.loadConnector(self.connectorType, self.dbName);})
+	.then(()=>includeFile("libs/toastada.js"))
+	.then(()=>includeFile("libs/toastada.css", "link"))
 	.then(()=>{
-		return self.loadConnector(self.connectorType, self.dbName);
-	})
-	.then(()=>{
-		return includeFile("libs/toastada.js");
-	})
-	.then(()=>{
-		return includeFile("libs/toastada.css", "link");
-	})
-	.then(()=>{
-		self.loadSchema();
+		// self.loadSchema();
 		var upgradePromise;
 		if ( self.upgradeNeeded(self.schema) ){
 			upgradePromise = self.upgradeDatabase({version:self.schema.version, Tables:self.schema.Tables});
@@ -186,6 +191,7 @@ function SyncClient(params){
 		}
 		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
 			this.showToast(this.welcomeMessage)
+		this.sendEvent("clientReady");
 	})
 	.catch(err=>console.log(err));
 	
@@ -196,26 +202,11 @@ function SyncClient(params){
 		window.addEventListener('offline', function(){self._onOffline()});
 	}
 	window.addEventListener('syncPending', function(e){self._onSyncPending(e.detail.reactive)});
-	window.addEventListener('syncEnd', function(e){if (self.onSyncEnd) eval(self.onSyncEnd);});		// call a custom function if any
+	if ( self.onServerChanges )
+		window.addEventListener('serverChanges', function(e){eval(self.onServerChanges)(e.detail.changes);});		// call a custom function if any
+	if ( self.onSyncEnd )
+		window.addEventListener('syncEnd', function(e){eval(self.onSyncEnd);});		// call a custom function if any
 }
-
-/*
-SyncClient.prototype.disableIndexedDBOpen = function(){
-	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
-	if ( (this.connectorType == "IndexedDB") || ((this.connectorType == "IonicStorage") && (DBConnector.getPreferredIonicStorage() == "IndexedDB"))){
-		if ( (this.autoUpgradeDB.toString() != "false") && (!this.getSyncClientCode() || (this.getMustUpgrade() == "true"))){
-			idb.indexedDBOpenDisabled = true;
-			idb.open = function(dbName){
-				console.log("IndexedDB.open() function has been disabled until sync complete and database ready");
-				idb.restartNeeded = true;
-				return null;
-			};
-		}
-	}
-	else if ( idb )
-		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
-}
-*/
 
 SyncClient.prototype.disableIndexedDBOpen = function(){
 	// Patch original database open function used by app, to avoid possible database lock conflict with sync client during database upgrade.
@@ -277,7 +268,7 @@ SyncClient.prototype.saveSchema = function(schema){
 };
 
 SyncClient.prototype.loadSchema = function(){
-	var s = this.getItem(this.proxyId + ".schema");
+	var s = this.getPrivateItem("schema");
 	if ( s )
 		this.schema = JSON.parse(s);
 	return this.schema;
@@ -446,14 +437,26 @@ SyncClient.prototype._onSyncPending = function(reactive){
 		this.showToastUnique("Sync started...", "info");
 };
 
+SyncClient.prototype._onServerChanges = function(changes){
+	this.sendEvent("serverChanges", {changes:changes});
+};
+
+SyncClient.prototype._onClientChangesReceived = function(){
+	this.sendEvent("clientChangesReceived");
+};
+
 SyncClient.prototype._onSyncEnd = function(reactive){
+	const self = this;
 	this.resetChunkNumber();
 	this.updateSyncButton();
 	if ( !reactive )
 		this.showToast("Sync ended successfully", "success");
 	this.resetIndexedDBOpen();		// reset app's normal database open function
-	if ( !this.mustUpgrade )
-		this.sendEvent("syncEnd", {reactive:reactive});
+	if ( !this.mustUpgrade ){
+		this.setPrivateItem("firstSyncDone", true);
+		this.sendEvent("syncEnd", {reactive:reactive, serverModifiedTables:Array.from(self.serverModifiedTables)});
+		self.serverModifiedTables = new Set();
+	}
 };
 
 SyncClient.prototype._onSyncCancel = function(msg){
@@ -468,10 +471,10 @@ SyncClient.prototype._onSyncError = function(err){
 	this.resetSendings();
 
 	var self = this;
-	if ( (err.err == "SESSION FAILURE") || (err.err == "MISSING FOLDER") )
+	if ( (err.warning == "SESSION FAILURE") || (err.err == "MISSING FOLDER") )
 		this.resetChunkNumber();
 	
-	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.err == "SESSION FAILURE") ){
+	if ( (err == "Cancel") || (err.err == "AUTH FAILURE") || (err.warning == "SESSION FAILURE") ){
 		// Will force a new authentication with login/password
 		if ( this.sessionId )
 			delete this.sessionId;
@@ -500,7 +503,7 @@ SyncClient.prototype._onSyncError = function(err){
 		else
 			this.showToast("Sync error", "error");
 	}
-	if ( err.err == "SESSION FAILURE" ){
+	if ( err.warning == "SESSION FAILURE" ){
 		window.setTimeout(function(){self.showToast("Next sync will start a new session", "info");}, 5000);
 	}
 	this.resetSyncsPending();
@@ -639,10 +642,11 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			// User sync profile received
 			if (self.clientSyncsPending > 0)
 				self.clientSyncsPending--;
-			if ( data.syncRules == {} )
+			// if ( data.syncRules == {} )
+			if ( data == {} )
 				return reject("No tables to sync");
 			else{
-				self.cacheSyncProfile(data.syncRules);
+				self.cacheSyncProfile(data);
 				return self.getAndSendClientChanges(self.syncType == 2)
 				.then(()=>resolve());
 			}
@@ -658,25 +662,6 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 			else
 				return resolve();
 		}
-/*  		else if ( data.schema ){
-			if (self.clientSyncsPending > 0)
-				self.clientSyncsPending--;
-			if ( data.schema.Tables && data.schema.Tables.length )
-				self.onSchemaUpdate(data.schema);
-			return resolve();
-		} */
-/* 		else if (data.syncRules){
-			// User sync profile received
-			if (self.clientSyncsPending > 0)
-				self.clientSyncsPending--;
-			if ( data.syncRules == {} )
-				reject("No tables to sync");
-			else{
-				self.cacheSyncProfile(data.syncRules);
-				return self.getAndSendClientChanges(self.syncType == 2)
-				.then(()=>resolve());
-			}
-		} */
 		else if ( data.clientChangesReceived ) {
 			// Server has received client changes
 			if (self.clientSyncsPending > 0)
@@ -693,6 +678,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 					resolve();
 			}
 			else{
+				self._onClientChangesReceived();
 				console.log("Client changes sent");
 				if ( data.conflicts )
 					self.showToast(data.conflicts + " conflicted data");
@@ -718,6 +704,7 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 		}
 		else if ( data.Deletes || data.Updates || data.Inserts ){
 			// Changes received from server.
+			self.serverModifiedTables = new Set([ ...self.serverModifiedTables, ...Object.keys(data.Deletes || {}), ...Object.keys(data.Updates || {}), ...Object.keys(data.Inserts || {}) ]);
 			// If data.chunk is definend: data has been chunked by server to reduce stream size: handle received data, then request the next chunk
 			self.handleServerChanges(data)
 			.then(res=>{
@@ -731,8 +718,6 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 				}
 			})
 			.then(res=>resolve(res));
-			// .then(()=>self.endServerSync(handledTables))
-			// .then(res=>resolve(res));
 		}
 		else if ( data.end ){
 			// Server sync just ended
@@ -1307,6 +1292,7 @@ SyncClient.prototype.handleServerChanges = function(changes){
 	.then(()=>self.handleDeletes(changes.Deletes, keyNames))		// important ! Deletes must be handled AFTER Upserts, particularly in case some rows excluded by filters were updated
 	.then(res=>{
 		handledTables = handledTables.concat(res);
+		self._onServerChanges(changes);
 		return handledTables;
 	})
 	.catch(err=>{console.log("Error during server data reception: " + err); return Promise.reject(err);});
@@ -1606,6 +1592,7 @@ SyncClient.prototype.serverSync = function(reactive, tables, forceTablesList){
 	if ( this.serverSyncsPending )
 		return Promise.resolve();
 	this.lastSyncFailed = false;
+	this.serverModifiedTables = new Set();
 	if ( this.mustUpgrade || this.serverSyncsPending || this.clientSyncsPending )		// database must upgrade or a server sync is already pending
 		return Promise.resolve();
 	var self = this;

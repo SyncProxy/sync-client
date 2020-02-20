@@ -24,7 +24,7 @@ path to the client sync script (recommended: "client-sync/client-sync.js")
 Id attributed by SyncProxy to  your proxy on creation
 
 **connectorType**  
-values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage"  
+values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage", "MemorySet"
 default: "IndexedDB"
 
 **dbName**  
@@ -88,7 +88,7 @@ default: ""
 **zipData**  
 values: "true", "false"
 If true, server will be requested to send data changes as zipped JSON, otherwise plain JSON.  
-default: "false"
+default: "true"
 
 **welcomeMessage**  
 Message that will popup in the app before the first synchronization.  
@@ -98,6 +98,9 @@ default: "To begin, please press Sync button"
 values: "true", "false"  
 If true (default), all datetimes will be stored as ISO-8601 strings, otherwise as "YYYY-MM-DD HH:MI:SS" (without timezone information).  
 default: "true"
+
+**onServerChanges(data)**  
+Optional handler function called each time a chunk of data is received from server. Received data are passed as a parameter.
 
 **onSyncEnd**  
 Optional handler function called each time synchronization ends

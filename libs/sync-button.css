@@ -1,7 +1,7 @@
 .sync-button{
 	position: absolute;
-	width: 96px;
-	height: 96px;
+	width: 96px;		/* default size 96px */
+	height: 96px;		/* default size 96px */
 	right: 0px;
 	outline: none;
 	border-radius: 100%;

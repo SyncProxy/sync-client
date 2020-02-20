@@ -4,10 +4,6 @@ DBConnectorIndexedDB.prototype.getIndexedDB = function(){
 	return indexedDB || window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB;
 }
 
-DBConnectorIndexedDB.prototype.newUID = function(){
-	return Math.floor((1 + Math.random()) * 0x1000000000);
-};
-
 // Patch IndexedDB's standard function to add automatic changes detection.
 DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 	console.log("Patching IndexedDB functions...");
@@ -58,10 +54,46 @@ DBConnectorIndexedDB.prototype.monkeyPatch = function(){
 	console.log("...patched");
 };
 
+DBConnectorIndexedDB.prototype.openDB = function() {
+	var self = this;
+	return new Promise(function(resolve,reject){
+		var request = self.getIndexedDB().openSTD(self.dbName);
+		request.onsuccess = function(){
+			resolve(request.result);
+		};
+		request.onerror = function(){
+			console.log("openDB error: " + request.error);
+			reject("openDB error:" + request.error);
+		};
+		request.onblocked = function(event){
+			console.log("Could not open database " + self.dbName + ": database blocked");
+			reject("Could not open database " + self.dbName + ": database blocked");
+		};
+	});
+};
+
+DBConnectorIndexedDB.prototype.openDBAndStore = function(tableName) {
+	// Store should be opened this way only for 1-operation transactions. Otherwise, FireFox will throw a TransactionInactiveError for next operations.
+	var db, self = this;
+	return this.openDB()
+	.then(res=>{db = res; return self.getStore(db, tableName);})
+	.then(store=>{return {db:db, store:store};})
+};
+
+DBConnectorIndexedDB.prototype.getStore = function(db, tableName) {
+	tx = db.transaction(tableName, "readwrite");
+	var store = tx.objectStore(tableName);
+	return store;
+};
+
+DBConnectorIndexedDB.prototype.newUID = function(){
+	return Math.floor((1 + Math.random()) * 0x1000000000);
+};
+
 DBConnectorIndexedDB.prototype.upgradeDatabase = function(newSchema){
 	console.log("upgradeDatabase");
 	var currVersion = this.getDBVersion();
-console.log("currVersion=" + currVersion + " newSchema.version=" + newSchema.version);
+	console.log("currVersion=" + currVersion + " newSchema.version=" + newSchema.version);
 	var firstUpgrade;
 	if ( !currVersion ){
 		firstUpgrade = true;
@@ -119,38 +151,6 @@ DBConnectorIndexedDB.prototype.upgradeDatabaseStructure = function(db, newSchema
 		else
 			return resolve(false);
 	});
-};
-
-DBConnectorIndexedDB.prototype.openDB = function() {
-	var self = this;
-	return new Promise(function(resolve,reject){
-		var request = self.getIndexedDB().openSTD(self.dbName);
-		request.onsuccess = function(){
-			resolve(request.result);
-		};
-		request.onerror = function(){
-			console.log("openDB error: " + request.error);
-			reject("openDB error:" + request.error);
-		};
-		request.onblocked = function(event){
-			console.log("Could not open database " + self.dbName + ": database blocked");
-			reject("Could not open database " + self.dbName + ": database blocked");
-		};
-	});
-};
-
-DBConnectorIndexedDB.prototype.openDBAndStore = function(tableName) {
-	// Store should be opened this way only for 1-operation transactions. Otherwise, FireFox will throw a TransactionInactiveError for next operations.
-	var db, self = this;
-	return this.openDB()
-	.then(res=>{db = res; return self.getStore(db, tableName);})
-	.then(store=>{return {db:db, store:store};})
-};
-
-DBConnectorIndexedDB.prototype.getStore = function(db, tableName) {
-	tx = db.transaction(tableName, "readwrite");
-	var store = tx.objectStore(tableName);
-	return store;
 };
 
 DBConnectorIndexedDB.prototype.get = function(store, key) {
@@ -288,7 +288,6 @@ DBConnectorIndexedDB.prototype.deleteOne = function(store, key){
 /////////////////
 function DBConnectorIndexedDB(dbName, syncClient)
 {
-	DBConnector.call(this, dbName, syncClient);
-	this.name = "IndexedDB";
+	DBConnector.call(this, dbName, syncClient, "IndexedDB");
 	this.monkeyPatch();
 }

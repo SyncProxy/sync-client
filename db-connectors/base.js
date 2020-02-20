@@ -204,28 +204,36 @@ DBConnector.prototype.upgradeDatabase = function(newSchema){
 	return Promise.resolve(false);
 };
 
-DBConnector.prototype.getKeyName = function(tableName){
+DBConnector.prototype.getKeyName = function(tableName, synchronous){
 	if ( !this.syncClient.schema )
 		this.syncClient.loadSchema();
 	var schema = this.syncClient.schema;
 	if ( schema ){
 		for ( var t in schema.Tables ){
 			if ( schema.Tables[t].Name == tableName ){
-				return Promise.resolve(schema.Tables[t].PK);
+				if (synchronous)
+					return schema.Tables[t].PK;
+				else
+					return Promise.resolve(schema.Tables[t].PK);
 			}
 		}
 	}
-	if ( this.keyNames && this.keyNames[tableName] )
+	if ( this.keyNames && this.keyNames[tableName] ){
+		if ( synchronous )
+			return this.keyNames[tableName]
 		return Promise.resolve(this.keyNames[tableName]);
+	}
+	if (synchronous)
+		return null;
 	return Promise.resolve(null);
 };
 
-
-function DBConnector(dbName, syncClient)
+function DBConnector(dbName, syncClient, name)
 {
 	if ( syncClient )
 		this.syncClient = syncClient;
-	this.name = "DBConnector";
+	if ( !name )
+		this.name = "DBConnector";
 	if ( !dbName )
 		return;
 	this.dbName = dbName;
