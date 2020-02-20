@@ -24,7 +24,7 @@ path to the client sync script (recommended: "client-sync/client-sync.js")
 Id attributed by SyncProxy to  your proxy on creation
 
 **connectorType**  
-values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage", "MemorySet"
+values: "IndexedDB", "WebSQL", "SQLite", "LocalStorage", "IonicStorage", "LokiJS"
 default: "IndexedDB"
 
 **dbName**  
