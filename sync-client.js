@@ -82,27 +82,27 @@ SyncClient.prototype.localStorageItemsPrefix = "syncProxy.";
 
 SyncClient.prototype.setItem = function(key, value){
 	localStorage.setItemSTD(this.localStorageItemsPrefix + key, value);
-}
+};
 
 SyncClient.prototype.getItem = function(key){
 	return localStorage.getItem(this.localStorageItemsPrefix + key);
-}
+};
 
 SyncClient.prototype.removeItem = function(key){
 	localStorage.removeItemSTD(this.localStorageItemsPrefix + key);
-}
+};
 
 SyncClient.prototype.setPrivateItem = function(key, value){
 	localStorage.setItemSTD(this.localStorageItemsPrefix + this.proxyId + "." + key, value);
-}
+};
 
 SyncClient.prototype.getPrivateItem = function(key){
 	return localStorage.getItem(this.localStorageItemsPrefix + this.proxyId + "." + key);
-}
+};
 
 SyncClient.prototype.removePrivateItem = function(key){
 	localStorage.removeItemSTD(this.localStorageItemsPrefix + this.proxyId + "." + key);
-}
+};
 
 SyncClient.prototype.defaultParams = {
 	"protocol": "wss",						// ws / wss
@@ -125,7 +125,7 @@ SyncClient.prototype.defaultParams = {
 	"zipData": true,						// If true, server changes are zipped before being sent
 	"welcomeMessage": "To begin, please press Sync button",
 	"onServerChanges": "",					// Custom function called after each chunk received from server. Changes are passed as a parameter to the handler function.
-	"onSyncEnd": "console.log('onSyncEnd')",// Custom function called after sync end
+	"onSyncEnd": function(){console.log('onSyncEnd')},	// Custom function called after sync end
 	"useSessionStorage": false				// Use sessionStorage instead of localSro
 };
 
@@ -137,7 +137,6 @@ function SyncClient(params){
 		else 
 			this[p] = SyncClient.prototype.defaultParams[p];
 	}
-	
 	// For testing purpose localStorage can be replaced with volatile sessionStorage (enables browser multi-tabs testing with different sync clients)
 	if ( this.useSessionStorage && this.useSessionStorage.toString() == "true" ){
 		delete localStorage;
@@ -151,7 +150,11 @@ function SyncClient(params){
 	this.resetSyncsPending();
 	var self = this;
 
-	includeFile("libs/pako.min.js")		// zip library
+	var textDecoderPolyfill = function(){return Promise.resolve();};
+	if ( typeof TextDecoder == "undefined" )
+		textDecoderPolyfill = function(){return includeFile("libs/textencode-decode.js");};
+	textDecoderPolyfill()
+	.then(()=>includeFile("libs/pako.min.js"))		// zip library
 	.then(()=>{return includeFile("db-connectors/base.js");})
 	.then(()=>{
 		if ( self.connectorType == "IonicStorage" ){
@@ -205,7 +208,7 @@ function SyncClient(params){
 	if ( self.onServerChanges )
 		window.addEventListener('serverChanges', function(e){eval(self.onServerChanges)(e.detail.changes);});		// call a custom function if any
 	if ( self.onSyncEnd )
-		window.addEventListener('syncEnd', function(e){eval(self.onSyncEnd);});		// call a custom function if any
+		window.addEventListener('syncEnd', function(e){eval(self.onSyncEnd)();});		// call a custom function if any
 }
 
 SyncClient.prototype.disableIndexedDBOpen = function(){
@@ -229,7 +232,7 @@ SyncClient.prototype.disableIndexedDBOpen = function(){
 	}
 	else if ( idb )
 		delete idb.openSTD;		// backup of IndexedDB.open() function is not needed: reset it
-}
+};
 
 SyncClient.prototype.resetIndexedDBOpen = function(){
 	// Reset original database open function used by app, if it was patched (to prevent database version collision with app), restore original open
@@ -596,15 +599,22 @@ SyncClient.prototype.onServerMessage = function(msg, synchronousRequestType){
 	return new Promise(function(resolve,reject){
 		var data, zipped;
 		var firstChar = msg.substr(0,1);
-		if ( self.zipData && (['{'].indexOf(firstChar) == -1) ){
+ 		if ( self.zipData && (self.zipData.toString() == "true") && (['{'].indexOf(firstChar) == -1) ){
+			
+			console.log("Unzipping received data...");
+			
 			// The stream doesn't start with a JSON start character: it is supposed to be a zipped JSON string (unless an error was encountered).
 			try {
 				var u = pako.inflate(atob(msg));
 				msg = new TextDecoder().decode(u);
 			} catch (err) {
+				console.log(err);
 			}
 		}
-		console.log('Received: ' + msg);
+		var continued = "";
+		if ( msg.length > 100000)
+			continued = "...";
+		console.log('Received: ' + msg.substr(0,100000) + continued);
 		try{data = JSON.parse(msg);}
 		catch(e){
 			self.showToast("Bad server data format", "error");
@@ -920,10 +930,29 @@ SyncClient.prototype.updateSyncButton = function(pressed){
 		this.syncBtn.className += " sync-button-rotating";
 };
 
+getBodyZoom = function(){
+	if ( !document.body.style.zoom )
+		return null;
+	return window.getComputedStyle(document.body).zoom;
+};
+
+getSyncBtnBounds = function(){
+	
+};
+
 SyncClient.prototype.initSyncButtonPos = function(){
 	// Center button horizontally at the bootom
-	this.syncBtn.style.top = (Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0) - parseInt(this.syncBtn.offsetHeight)) + "px";
-	this.syncBtn.style.left = parseInt(parseInt(window.innerWidth)/2 - parseInt(this.syncBtn.offsetWidth)/2) + "px";
+	var newLeft = parseInt(parseInt(window.innerWidth)/2 - parseInt(this.syncBtn.offsetWidth)/2);
+	var newTop = (Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0) - parseInt(this.syncBtn.offsetHeight));
+	const zoom = getBodyZoom();
+	if ( zoom ){
+		console.log("Zoom: " + zoom);
+		newLeft = newLeft * zoom;
+		newTop = newTop * zoom;
+
+	}
+	this.syncBtn.style.left = newLeft + "px";
+	this.syncBtn.style.top = newTop + "px";
 };
 
 SyncClient.prototype.createSyncButton = function(){
@@ -971,8 +1000,6 @@ SyncClient.prototype.createSyncButton = function(){
 			self.syncBtn.style.left = "0px";
 		if ( self.syncBtn.offsetTop < 0 )
 			self.syncBtn.style.top = "0px";
-		// if ( parseInt(self.syncBtn.offsetTop) > parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3 )
-			// self.syncBtn.style.top = (parseInt(window.innerHeight) - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
 		var hMax = Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0);
 		if ( parseInt(self.syncBtn.offsetTop) > hMax - parseInt(self.syncBtn.offsetHeight) - 3 )
 			self.syncBtn.style.top = (hMax - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
