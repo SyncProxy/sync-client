@@ -1,5 +1,26 @@
+.tingle-modal__close {
+  font-size: 3rem;
+}
+
+.tingle-modal__closeLabel {
+font-size: 1.5rem;
+}
+
+.tingle-modal__closeIcon {
+margin-right: .5rem;
+font-size: 2rem;
+}
+
 .tingle-modal{
 	z-index: 1000000;
+}
+
+.tingle-modal-box__content {
+  padding: 1.5rem 1.5rem;
+}
+
+.tingle-btn {
+	border-radius:5px;
 }
 
 .tingle-btn--primary {
@@ -19,11 +40,11 @@
 .tingle-custom-input {
 	display: inline-block;
 	width: 25rem;
-	max-width: 70%;
+	max-width: 65%;
 	border: none;
-	margin: 0 .5rem;
-	padding: 0.2 0.5rem;
-    font-size: 1.5rem;
+	margin: 0 .2rem;
+	padding: 0.2 0.2rem;
+    font-size: 1.1rem;
 	/*font-family: inherit;*/
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 	background-color: #efebe9;
@@ -35,17 +56,17 @@
 
 .tingle-custom-title {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-	font-size: 2em;
+	font-size: 1.5em;
 	padding-bottom: 5px;
 }
 
 .tingle-custom-label {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
 .tingle-custom-text{
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 

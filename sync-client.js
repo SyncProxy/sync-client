@@ -116,7 +116,7 @@ SyncClient.prototype.defaultParams = {
 	"physicalSchemaReadDelay": "5000",		// Delay after which, if no sync schema was found, the sync client will try to read the schema from the physical data store
 	"autoInit": true,						// If true, sync client will be started automatically. If false, sync client should be created by calling SyncClient.initClient(params)
 	"reactiveSync": true,					// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
-	"syncButton": true,						// If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
+	"syncButton": true,						// If "true" (=draggable) or "fixed", enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side
 	"tablesToSync": [],						// List of tables to sync with sync profiles (sync direction + reactivity)
 	"customCredentials": "",				// Custom credential function. Typically returns a {login, password} object which will be sent as-is to the server.
 	"login": "",							// Default user login.
@@ -126,7 +126,7 @@ SyncClient.prototype.defaultParams = {
 	"welcomeMessage": "To begin, please press Sync button",
 	"onServerChanges": "",					// Custom function called after each chunk received from server. Changes are passed as a parameter to the handler function.
 	"onSyncEnd": function(){console.log('onSyncEnd')},	// Custom function called after sync end
-	"useSessionStorage": false				// Use sessionStorage instead of localSro
+	"useSessionStorage": false				// Use sessionStorage instead of localStorage
 };
 
 function SyncClient(params){
@@ -194,7 +194,7 @@ function SyncClient(params){
 		}
 		if (!this.getSyncClientCode() && this.welcomeMessage && (this.welcomeMessage != ""))
 			this.showToast(this.welcomeMessage)
-		this.sendEvent("clientReady");
+		SyncClient.defaultClient.sendEvent("clientReady");
 	})
 	.catch(err=>console.log(err));
 	
@@ -972,47 +972,53 @@ SyncClient.prototype.createSyncButton = function(){
 		else
 			return {x: e.pageX, y: e.pageY};
 	};
-	this.syncBtn.drag = function(e){
-		e.preventDefault();
-		self.updateSyncButton(true);
-		self.syncBtn.moved = false;
-		self.syncBtn.obj = self.syncBtn;
-		var pageXY = getPageXY(e);
-		self.syncBtn.prev_x = pageXY.x - self.syncBtn.obj.offsetLeft;
-		self.syncBtn.prev_y = pageXY.y - self.syncBtn.obj.offsetTop;
-	};
-	this.syncBtn.move = function(e) {
-		if ( (typeof TouchEvent != "undefined") && (e instanceof TouchEvent) && (e.target != self.syncBtn) )
-			return;
-		var pageXY = getPageXY(e);
-		// If the object specifically is selected, then move it to the X/Y coordinates that are always being tracked.
-		if (self.syncBtn.obj) {
-			if ( Math.pow(self.syncBtn.prev_x + self.syncBtn.x - pageXY.x, 2) + Math.pow(self.syncBtn.prev_y + self.syncBtn.y - pageXY.y, 2) > 2 )		// click is tolerant to mini-movements (max 1px on X and 1px on Y)
-				self.syncBtn.moved = true;
-			self.syncBtn.x = pageXY.x; // X coordinate based on page, not viewport.
-			self.syncBtn.y = pageXY.y; // Y coordinate based on page, not viewport.
-			self.syncBtn.obj.style.left = (pageXY.x - self.syncBtn.prev_x) + 'px';
-			self.syncBtn.obj.style.top = (pageXY.y - self.syncBtn.prev_y) + 'px';
-		}
-		if ( parseInt(self.syncBtn.offsetLeft) > parseInt(window.innerWidth) - parseInt(self.syncBtn.offsetWidth) )
-			self.syncBtn.style.left = (parseInt(window.innerWidth) - parseInt(self.syncBtn.offsetWidth)) + "px";
-		if ( self.syncBtn.offsetLeft < 0 )
-			self.syncBtn.style.left = "0px";
-		if ( self.syncBtn.offsetTop < 0 )
-			self.syncBtn.style.top = "0px";
-		var hMax = Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0);
-		if ( parseInt(self.syncBtn.offsetTop) > hMax - parseInt(self.syncBtn.offsetHeight) - 3 )
-			self.syncBtn.style.top = (hMax - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
-	};
-	this.syncBtn.drop = function(e) {
-		var clicked = self.syncBtn.obj && !self.syncBtn.moved;
-		self.syncBtn.moved = false;
-		self.syncBtn.obj = false;
-		self.updateSyncButton(false);
-		// Handle click unless button is disabled.
-		if (clicked && (self.syncBtn.className.indexOf("sync-button-disabled") == -1))
-			window.setTimeout(function(){self.syncButtonPressed();},0);
-	};
+	if ( this.syncButton == "fixed" ){
+		this.syncBtn.addEventListener("click", function(){
+			self.syncButtonPressed();
+		});
+	} else {
+		this.syncBtn.drag = function(e){
+			e.preventDefault();
+			self.updateSyncButton(true);
+			self.syncBtn.moved = false;
+			self.syncBtn.obj = self.syncBtn;
+			var pageXY = getPageXY(e);
+			self.syncBtn.prev_x = pageXY.x - self.syncBtn.obj.offsetLeft;
+			self.syncBtn.prev_y = pageXY.y - self.syncBtn.obj.offsetTop;
+		};
+		this.syncBtn.move = function(e) {
+			if ( (typeof TouchEvent != "undefined") && (e instanceof TouchEvent) && (e.target != self.syncBtn) )
+				return;
+			var pageXY = getPageXY(e);
+			// If the object specifically is selected, then move it to the X/Y coordinates that are always being tracked.
+			if (self.syncBtn.obj) {
+				if ( Math.pow(self.syncBtn.prev_x + self.syncBtn.x - pageXY.x, 2) + Math.pow(self.syncBtn.prev_y + self.syncBtn.y - pageXY.y, 2) > 2 )		// click is tolerant to mini-movements (max 1px on X and 1px on Y)
+					self.syncBtn.moved = true;
+				self.syncBtn.x = pageXY.x; // X coordinate based on page, not viewport.
+				self.syncBtn.y = pageXY.y; // Y coordinate based on page, not viewport.
+				self.syncBtn.obj.style.left = (pageXY.x - self.syncBtn.prev_x) + 'px';
+				self.syncBtn.obj.style.top = (pageXY.y - self.syncBtn.prev_y) + 'px';
+			}
+			if ( parseInt(self.syncBtn.offsetLeft) > parseInt(window.innerWidth) - parseInt(self.syncBtn.offsetWidth) )
+				self.syncBtn.style.left = (parseInt(window.innerWidth) - parseInt(self.syncBtn.offsetWidth)) + "px";
+			if ( self.syncBtn.offsetLeft < 0 )
+				self.syncBtn.style.left = "0px";
+			if ( self.syncBtn.offsetTop < 0 )
+				self.syncBtn.style.top = "0px";
+			var hMax = Math.max(parseInt(document.body.scrollHeight), window.innerHeight || 0);
+			if ( parseInt(self.syncBtn.offsetTop) > hMax - parseInt(self.syncBtn.offsetHeight) - 3 )
+				self.syncBtn.style.top = (hMax - parseInt(self.syncBtn.offsetHeight) - 3) + "px";
+		};
+		this.syncBtn.drop = function(e) {
+			var clicked = self.syncBtn.obj && !self.syncBtn.moved;
+			self.syncBtn.moved = false;
+			self.syncBtn.obj = false;
+			self.updateSyncButton(false);
+			// Handle click unless button is disabled.
+			if (clicked && (self.syncBtn.className.indexOf("sync-button-disabled") == -1))
+				window.setTimeout(function(){self.syncButtonPressed();},0);
+		};
+	}
 	document.body.appendChild(this.syncBtn);
 	this.syncBtn.onmousedown = this.syncBtn.drag;
 	this.syncBtn.ontouchstart = this.syncBtn.drag;
@@ -1058,6 +1064,14 @@ SyncClient.prototype.saveMustUpgrade = function(val){
 SyncClient.prototype.saveUserName = function(name, lastName){
 	this.setItem(this.proxyId + ".lastUserName", name);
 	this.setItem(this.proxyId + ".lastUserLastName", lastName);
+};
+
+SyncClient.prototype.getUserName = function(){
+	return this.getItem(this.proxyId + ".lastUserName");
+};
+
+SyncClient.prototype.getUserLastName = function(){
+	return this.getItem(this.proxyId + ".lastUserLastName");
 };
 
 SyncClient.prototype.authenticate = function() {

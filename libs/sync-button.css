@@ -1,61 +1,56 @@
 .sync-button{
 	position: absolute;
-	width: 96px;		/* default size 96px */
-	height: 96px;		/* default size 96px */
+	width: 64px;		/* default size 64px */
+	height: 64px;		/* default size 64px */
 	right: 0px;
 	outline: none;
 	border-radius: 100%;
-	opacity: 0.3;
-	filter: alpha(opacity=30); /* For IE8 and earlier */
+	opacity: 0.5;
 	background: url(sync.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .sync{
 	/* background: url(sync.png) no-repeat; */
 	background: url(sync.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .sync-ok{
 	background: url(sync-ok.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .sync-auto{
 	background: url(sync-auto.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .sync-error{
 	background: url(sync-error.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .offline{
 	background: url(offline.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .online{
 	background: url(online.png) no-repeat;
-	background-size: 96px 96px;
+	background-size: 64px 64px;
 }
 
 .sync-button-pressed{
-	opacity: 0.8;
-	filter: alpha(opacity=80); /* For IE8 and earlier */
+	opacity: 1;
 }
 
 .sync-button-disabled{
-	opacity: 0.3;
-	filter: alpha(opacity=30); /* For IE8 and earlier */
-	/*pointer-events: none;*/
+	opacity: 0.5;
 }
 
 .sync-button-rotating {
-	opacity: 0.8;
-	filter: alpha(opacity=80); /* For IE8 and earlier */
+	opacity: 1;
 	-webkit-animation: rotation 1s infinite linear;
 }
 @-webkit-keyframes rotation {
