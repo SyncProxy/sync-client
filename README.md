@@ -62,11 +62,11 @@ default: "true"
 **reactiveSync**  
 values: "true", "false"
 If true, enables reactive sync. Reactivity for each table + direction (server->client and client->server) is configured on server side  
-default: "true"
+default: "true
 
 **syncButton**  
-values: "true", "false"
-If true, a popup sync button is displayed. If false, application must take care to launch sync by itself  
+values: "true", "fixed", "false"
+If true, a draggable popup sync button is displayed. If fixed, button's position is fixed. If false, application must take care to launch sync by itself  
 default: "true"
 
 **tablesToSync**  
