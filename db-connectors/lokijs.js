@@ -7,35 +7,11 @@ DBConnectorLokiJS.prototype.getKeyName = function(tableName, synchronous){
 	return DBConnector.prototype.getKeyName.call(this, tableName, synchronous);
 };
 
-/* DBConnectorLokiJS.prototype.getManySynchronous = function(tableName, arrPKval){
-	const self = this, collection = this.db.getCollection(tableName);
-	var keyName = this.getKeyName(tableName, true);
-	const res = [];
-	for ( var k in arrPKval ){
-		const keyVal = arrPKval[k];
-		var obj = collection.by(keyName, keyVal);
-		if ( obj )
-			res.push(obj);
-	}
-	return res;
-};
-
-DBConnectorLokiJS.prototype.getMany = function(tableName, arrPKval, synchronous){
-	const self = this;
-	if ( synchronous )
-		return this.getManySynchronous(tableName, arrPKval);
-	else
-		return new Promise((resolve, reject)=>{
-			resolve(self.getManySynchronous(tableName, arrPKval));
-		});
-}; */
-
 DBConnectorLokiJS.prototype.getMany = function(tableName, arrLokiKeys){
 	// We use rows meta property $loki to retrieve rows contents
 	const self = this;
 	return new Promise((resolve, reject)=>{
 		const res = [];
-		// for ( var k in arrLokiKeys ){
 		for ( var k = 0; k < arrLokiKeys.length; k++ ){
 			const lokiKey = arrLokiKeys[k];
 			var obj = collection.get(lokiKey);
@@ -62,7 +38,6 @@ DBConnectorLokiJS.prototype.getUpserts = function(tableName) {
 	return new Promise((resolve,reject)=>{
 		var lokiKeys = collection.changes
 		.filter(x=>(x.name == tableName) && ((x.operation == "U") || (x.operation == "I")))
-		// .map(x=>{var y = {}; Object.assign(y, x.obj); delete y.meta; delete y.$loki; return y})
 		.map(x=>x.obj.$loki);
 		// We have to query data after querying changes because LokiJS changes only show changed data, except new fields
 		resolve(
@@ -105,7 +80,6 @@ DBConnectorLokiJS.prototype.handleUpserts = function(tableName, upserts, keyName
 	const changesApiEnabled = !collection.disableChangesApi;		// save setting
 	collection.setChangesApi(false);
 	collection.disableChangesEvents = true;
-	// for ( var u in upserts ){
 	for ( var u = 0; u < upserts.length; u++ ){
 		const upsert = upserts[u];
 		if ( row = collection.by(keyName, upsert[keyName]) ){
@@ -151,7 +125,6 @@ DBConnectorLokiJS.prototype.initDatabase = function(){
 		logMs("No schema yet: init cancelled");
 		return;
 	}
-	// for ( var t in schema.Tables ){
 	for ( var t = 0; t < schema.Tables.length; t++ ){
 		const table = schema.Tables[t];
 		if ( !db.getCollection(table.Name) ){
@@ -177,7 +150,6 @@ DBConnectorLokiJS.prototype.getChangesKeyName = function(db, collection){		// op
 DBConnectorLokiJS.prototype.saveLokiChanges = function(connector){
 	logMs("saveLokiChanges");
 	const db = connector.db;
-	// for ( var c in db.collections ){
 	for ( var c = 0; c < db.collections.length; c++ ){
 		const collection = db.collections[c];
 		const itemName = DBConnectorLokiJS.prototype.getChangesKeyName(db, collection);
@@ -188,7 +160,6 @@ DBConnectorLokiJS.prototype.saveLokiChanges = function(connector){
 DBConnectorLokiJS.prototype.loadLokiChanges = function(connector){
 	logMs("loadLokiChanges");
 	const db = connector.db;
-	// for ( var c in db.collections ){
 	for ( var c = 0; c < db.collections.length; c++ ){
 		const collection = db.collections[c];
 		if ( collection.changes.length )
@@ -212,10 +183,6 @@ DBConnectorLokiJS.prototype.onSyncEnd = function(){
 		delete SyncClient.defaultClient.connector.clientChangesReceived;
 		db.clearChanges();
 	}
-	// setTimeout(function(){
-		// logMs("Saving LokiJS database");
-		// db.saveDatabase();
-	// }, 0);
 };
 
 function DBConnectorLokiJS(dbName, dbVersion)
@@ -227,7 +194,6 @@ function DBConnectorLokiJS(dbName, dbVersion)
 	.then(()=>{
 		window.addEventListener("syncEnd", self.onSyncEnd);
 		window.addEventListener("clientChangesReceived", self.onClientChangesReceived);
-		// window.addEventListener("clientReady", self.loadAllCollections);
 		var idbAdapter = new LokiIndexedAdapter();
 		self.db = new loki(dbName, { 
 			adapter: idbAdapter,

@@ -1444,6 +1444,7 @@ hasChanges = function(changes){
 };
 
 SyncClient.prototype.markChangesAsBeingSent = function(changes){
+	// return;
 	var tables = this.getChangesTables(changes);
 	for ( var t in tables){
 		var tableName = tables[t];
