@@ -1,5 +1,5 @@
 # Introduction
-SyncProxy-client is a javascript client for SyncProxy that enables one-single line of code implementation of synchronization for javascript offline applications using embedded database (IndexedDB, SQL Lite, WebSQL, LokiJS...). Used with the SyncProxy server (www.syncproxy.com) to access the backend database (MySQL, SQL Server, MongoDB...), this is the shortest way to make mobile offline applications synchronize bi-directionally in realtime using reactive sync technology.
+SyncProxy-client is a javascript client for SyncProxy that enables one-single line of code implementation of synchronization for javascript offline applications using embedded database (IndexedDB, SQL Lite, WebSQL, LokiJS...). Used with the SyncProxy server (https://www.syncproxy.com) to access the backend database (MySQL, SQL Server, MongoDB...), this is the shortest way to make mobile offline applications synchronize bi-directionally in realtime using reactive sync technology.
 
 # Installation
 ```
@@ -12,7 +12,7 @@ Simply copy the library, then load the SyncProxy client script from within your 
 <script src="sync-client/sync-client.js" proxyID="<proxy Id>" connectorType="IndexedDB or WebSQL or SQLite or IonicStorage" dbName="your client db name"></script> 
 ```
 
-(the script params can also be retrieved directly from my.syncproxy.com when creating a sync proxy)
+(the script params can also be retrieved directly from https://my.syncproxy.com when creating a sync proxy)
 
 ## Custom params
 Sync client script can be invoked with custom params that are inserted as attributes of the **&lt;script&gt;** tag:
