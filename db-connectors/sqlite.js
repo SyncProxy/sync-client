@@ -1,8 +1,14 @@
 DBConnectorSQLite.prototype = new DBConnectorSQLiteBase();
 DBConnectorSQLiteBase.plugin = window.sqlitePlugin;		// set base plugin
 
+// DBConnectorSQLite.prototype.openDB = function(){
+	// return DBConnectorSQLiteBase.plugin.openDatabase({name:this.dbName, location:this.syncClient.dbLocation});
+// };
+
 DBConnectorSQLite.prototype.openDB = function(){
-	return DBConnectorSQLiteBase.plugin.openDatabase({name:this.dbName, location:this.syncClient.dbLocation});
+	return new Promise((resolve,reject)=>{
+		resolve(DBConnectorSQLiteBase.plugin.openDatabase({name:this.dbName, location:this.syncClient.dbLocation}));
+	});
 };
 
 // Patch SQLite standard function to handle automatic changes detection (Cordova SQLite plugin defines direct executeSql() and sqlBatch() functions on database SQLitePlugin object)
@@ -37,8 +43,7 @@ DBConnectorSQLite.prototype.patchOpenDatabase = function(db){
 						if ( onSuccessORG )
 							onSuccessORG(data);
 					};
-				}
-				if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE")) ){
+				} else if ( sqlObject && sqlObject.pkCol && ((sqlObject.ope == "UPDATE") || (sqlObject.ope == "DELETE")) ){
 					// If datas are to be updated or deleted, previously save their PKs into localStorage.
 					// Run a similar SELECT query to retrieve rows, in order to mark them as updated/deleted before executing the UPDATE or DELETE.
 					var selectQuery = self.convertToSelect(sqlObject.table, sql, args, sqlObject.pkCol);

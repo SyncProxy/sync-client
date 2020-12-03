@@ -109,7 +109,7 @@ SyncClient.prototype.defaultParams = {
 	"serverUrl": "my.syncproxy.com",		// Default: "my.syncproxy.com";
 	"serverPort": 4501,						// Default: 4501
 	"proxyId": "",							// ID of the server-side sync proxy to sync with. If blank, user's default sync proxy will be retrieved by sync server
-	"connectorType": "IndexedDB",			// Client database connector: IndexedDB / WebSQL / SQLite / LocalStorage / IonicStorage
+	"connectorType": "IndexedDB",			// Client database connector: IndexedDB / WebSQL / SQLite / LocalStorage / IonicStorage / SQLJS
 	"dbName": "",							// Client databse name
 	"dbLocation": "default",				// Client databse location (used by SQLite driver)
 	"autoUpgradeDB": "true",				// If set to false, database's structure will not be upgraded by sync (in that case, app should manage schema updates by itself).
@@ -164,8 +164,12 @@ function SyncClient(params){
 		}
 		if ( !(self.tablesToSync instanceof Array) )
 			self.tablesToSync = self.tablesToSync.split(',');		// tablesToSync may be passed as a list of tables separated with ","
-		if ( (self.connectorType == "WebSQL") || (self.connectorType == "SQLite") )
-			return includeFile("db-connectors/sqlite-base.js");
+		if ( (self.connectorType == "WebSQL") || (self.connectorType == "SQLite") || (self.connectorType == "SQLJS") )
+			return includeFile("db-connectors/sql-base.js")
+			.then(()=>{
+				if ( (self.connectorType == "WebSQL") || (self.connectorType == "SQLite") )
+					return includeFile("db-connectors/sqlite-base.js")
+			});
 	})
 	.then(()=>{self.loadSchema(); return self.loadConnector(self.connectorType, self.dbName);})
 	.then(()=>includeFile("libs/toastada.js"))

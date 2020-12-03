@@ -80,8 +80,18 @@ DBConnectorIndexedDB.prototype.openDBAndStore = function(tableName) {
 	.then(store=>{return {db:db, store:store};})
 };
 
+// DBConnectorIndexedDB.prototype.getStore = function(db, tableName) {
+	// tx = db.transaction(tableName, "readwrite");
+	// var store = tx.objectStore(tableName);
+	// return store;
+// };
+
 DBConnectorIndexedDB.prototype.getStore = function(db, tableName) {
-	tx = db.transaction(tableName, "readwrite");
+	try {
+		tx = db.transaction(tableName, "readwrite");
+	} catch(err){
+		return null;
+	}
 	var store = tx.objectStore(tableName);
 	return store;
 };

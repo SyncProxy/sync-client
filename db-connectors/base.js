@@ -44,7 +44,7 @@ DBConnector.prototype.getDeletesKeys = function(tableName) {
 
 DBConnector.prototype.markAsUpserted = function(tableName, arrKeys){
 	if ( !arrKeys || (arrKeys.length == 0) )
-	return;
+		return;
 	var upserts = this.getTableChangesKeys(tableName, "Upserts");
 	if ( !upserts )
 		upserts = [];
